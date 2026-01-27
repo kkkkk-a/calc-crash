@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>カルク＆クラッシュ</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+<style>:root {
+    --bg-color: #0a0b10;
+    --panel-bg: rgba(15, 20, 30, 0.95);
+    --primary-x: #00f2ff;
+    --primary-o: #ff0055;
+    --accent-gold: #ffd700;
+    --text-color: #e0e6ed;
+    --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+body {
+    margin: 0; background: radial-gradient(circle at center, #1a1f2c 0%, #050505 100%);
+    color: var(--text-color); font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
+    height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden;
+    touch-action: manipulation;
+}
+
+.bg-grid {
+    position: absolute; width: 200%; height: 200%;
+    background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 50px 50px; transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
+    animation: gridMove 20s linear infinite; z-index: -1; pointer-events: none;
+}
+@keyframes gridMove { 100% { transform: perspective(500px) rotateX(60deg) translateY(50px) translateZ(-200px); } }
+
+.app-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+.screen { position: absolute; width: 100%; height: 100%; display: none; flex-direction: column; justify-content: center; align-items: center; }
+.screen.active { display: flex; }
+.panel-glass { background: var(--panel-bg); border: var(--glass-border); backdrop-filter: blur(10px); border-radius: 15px; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+
+/* Typography */
+/* タイトル周りの調整 */
+h1 { 
+    font-size: 3.5rem; /* 少し大きく */
+    line-height: 0.8; 
+    text-align: center; 
+    margin-bottom: 40px; 
+    position: relative;
+    letter-spacing: -2px;
+}
+
+h1 span { color: var(--accent-gold); text-shadow: 0 0 10px var(--accent-gold); }
+
+/* 日本語サブタイトルのスタイル */
+.jp-title-sub {
+    font-family: 'Noto Sans JP';
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 8px; /* 文字間隔を広げて高級感を出す */
+    color: var(--primary-x);
+    text-shadow: 0 0 8px var(--primary-x);
+    margin-bottom: 8px;
+    margin-left: 8px; /* センター微調整 */
+    text-transform: uppercase;
+    opacity: 0.9;
+}
+
+/* ついでにゲームタイトル全体の光彩を強化 */
+.game-title {
+    text-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
+}
+h2 { letter-spacing: 2px; color: #fff; text-align: center; }
+
+.menu-grid { display: grid; gap: 15px; width: 300px; }
+.btn { background: rgba(0,0,0,0.5); border: 1px solid #fff; color: #fff; padding: 15px; font-family: 'Orbitron'; font-weight: bold; cursor: pointer; transition: 0.2s; user-select: none; }
+.btn:hover { background: #fff; color: #000; }
+.btn-local { border-color: var(--primary-x); color: var(--primary-x); }
+.btn-net { border-color: var(--accent-gold); color: var(--accent-gold); }
+
+/* Game Board */
+.game-board { 
+    width: min(100vw, 500px); height: min(100vh, 850px); 
+    display: flex; flex-direction: column; 
+    padding: 10px 5px; box-sizing: border-box; position: relative; 
+    justify-content: space-between;
+}
+
+/* Player Area */
+.player-area { 
+    display: flex; flex-direction: column; gap: 5px; padding: 8px; 
+    background: rgba(0,0,0,0.3); border-radius: 8px; transition: 0.3s; 
+    border: 1px solid transparent; position: relative;
+}
+.opponent { opacity: 0.9; }
+
+.player-area.is-attacker {
+    border-color: var(--primary-o);
+    background: linear-gradient(to bottom, rgba(255, 0, 85, 0.15), rgba(0,0,0,0.4));
+    box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
+}
+.player-area.is-defender {
+    border-color: var(--primary-x);
+    background: linear-gradient(to bottom, rgba(0, 242, 255, 0.15), rgba(0,0,0,0.4));
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+}
+
+/* 対面モードの回転 */
+.game-board.mode-local .player-area.opponent {
+    transform: rotate(180deg);
+    margin-bottom: 5px;
+}
+
+.p-info { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; }
+.role-badge { font-size: 0.8rem; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
+.is-attacker .role-badge { background: var(--primary-o); color: #fff; }
+.is-defender .role-badge { background: var(--primary-x); color: #000; }
+
+/* Cards & Chips */
+.cards-container { display: flex; justify-content: center; gap: 6px; min-height: 65px; flex-wrap: wrap; align-items: center; }
+.chips-container { display: flex; justify-content: center; gap: 8px; min-height: 35px; margin-bottom: 4px; }
+
+.card {
+    width: 48px; height: 64px; background: #000; border: 2px solid #555; color: #fff;
+    display: flex; justify-content: center; align-items: center; font-size: 1.6rem; font-weight: bold;
+    border-radius: 6px; cursor: pointer; transition: 0.2s; user-select: none;
+}
+.card:active { transform: scale(0.9); }
+.card.selected { border-color: var(--accent-gold); background: #222; box-shadow: 0 0 10px var(--accent-gold); transform: translateY(-3px); }
+.card.disabled { opacity: 0.3; pointer-events: none; border-color: #333; }
+.card-back { background: repeating-linear-gradient(45deg, #111, #111 5px, #222 5px, #222 10px); color: transparent; border-color: #444; }
+
+.chip {
+    width: 32px; height: 32px; border-radius: 50%; background: #222; border: 1px solid #666;
+    display: flex; justify-content: center; align-items: center; font-family: monospace; font-size: 1.2rem;
+    cursor: pointer; transition: 0.2s; user-select: none;
+}
+.chip.selected { background: var(--accent-gold); color: #000; box-shadow: 0 0 8px var(--accent-gold); }
+.chip.used { opacity: 0.2; pointer-events: none; }
+
+/* Battle Field */
+.battle-field { 
+    flex-grow: 1; display: flex; flex-direction: column; 
+    justify-content: center; align-items: center; gap: 15px; position: relative; 
+}
+.card-slot { 
+    width: 55px; height: 75px; border: 2px dashed #444; border-radius: 8px; 
+    display: flex; justify-content: center; align-items: center; transition: 0.3s; 
+}
+.card-slot .card { width: 100%; height: 100%; cursor: default; border: none; }
+
+.center-info { display: flex; flex-direction: column; align-items: center; gap: 2px; z-index: 5; }
+#turn-indicator { font-size: 0.7rem; color: #666; letter-spacing: 2px; }
+#timer-display { font-size: 2.2rem; font-weight: bold; font-family: 'Orbitron'; color: #fff; text-shadow: 0 0 10px #fff; line-height: 1; }
+#timer-display.warning { color: var(--primary-o); animation: blink 0.5s infinite alternate; }
+@keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
+
+/* Calc Zone (Positioning) */
+.calc-zone { 
+    position: absolute; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.95); border: 2px solid var(--accent-gold); border-radius: 10px;
+    padding: 10px; width: 90%; max-width: 320px; box-sizing: border-box; 
+    display: flex; flex-direction: column; gap: 8px; z-index: 50;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    transition: all 0.3s;
+}
+.calc-zone.hidden { display: none; }
+
+/* P1用位置（下側） */
+.calc-pos-p1 {
+    bottom: 5px; /* 下部プレイヤーの手元 */
+    top: auto;
+    transform: translateX(-50%);
+}
+
+/* P2用位置（上側・反転） */
+.calc-pos-p2 {
+    top: 5px; /* 上部プレイヤーの手元 */
+    bottom: auto;
+    transform: translateX(-50%) rotate(180deg); /* 180度回転 */
+}
+
+.calc-header { text-align: center; color: var(--accent-gold); font-size: 0.8rem; font-family: 'Orbitron'; }
+.calc-screen { 
+    background: #111; color: var(--accent-gold); font-family: 'Roboto Mono'; font-size: 1.4rem; 
+    padding: 8px; border-radius: 4px; min-height: 1.5em; border: 1px solid #333; text-align: right;
+}
+.calc-controls { display: flex; gap: 5px; }
+.btn-calc-action { flex: 1; padding: 12px 5px; border: none; font-family: 'Orbitron'; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 0.9rem; }
+.btn-fire { background: var(--primary-o); color: #fff; }
+.btn-pass { background: #333; color: #aaa; }
+
+#game-status { text-align: center; color: var(--accent-gold); font-size: 0.85rem; margin: 5px 0; min-height: 1.2em; }
+#btn-abort { position: absolute; bottom: 5px; right: 5px; font-size: 0.7rem; background: transparent; border: 1px solid #444; color: #666; cursor: pointer; padding: 5px 10px; z-index: 10; }
+
+.overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:none; flex-direction:column; justify-content:center; align-items:center; z-index: 100; }
+.rules-box { background: #1a1f2c; padding: 20px; border: 1px solid #444; max-width: 90%; color: #ddd; border-radius: 10px; }
+.room-input { background: #000; border: 1px solid #555; color: #fff; padding: 10px; font-family: 'Orbitron'; text-align: center; width: 100%; box-sizing: border-box; }
+.id-box { background: #000; color: var(--primary-x); padding: 10px; border: 1px dashed #555; margin: 10px 0; font-family: monospace; }
+
+@media (max-width: 600px) {
+    .game-board { height: 100vh; width: 100vw; border-radius: 0; padding: 2px; }
+    .card { width: 55px; height: 75px; font-size: 2rem; }
+    .chip { width: 40px; height: 40px; font-size: 1.5rem; }
+    .player-area { padding: 5px; gap: 2px; }
+    .battle-field { padding: 10px 0; gap: 5px; }
+    #timer-display { font-size: 2rem; }
+}</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<div class="app-container">
+    
+    <!-- タイトル画面 -->
+    <div id="screen-title" class="screen active panel-glass">
+       <h1 class="game-title">
+            <div class="jp-title-sub">カルク ＆ クラッシュ</div>
+            CALC &<br><span>CRASH</span>
+        </h1>
+        <div class="menu-grid">
+            <button class="btn btn-local" onclick="GameApp.initLocal()">オフライン対戦 (2P)</button>
+            <button class="btn btn-net" onclick="Network.openMenu()">オンライン対戦</button>
+            <button class="btn btn-rules" onclick="document.getElementById('rules-overlay').style.display='flex'">ルール確認</button>
+        </div>
+        <div class="footer-info">NEO TACTICS SERIES</div>
+    </div>
+
+    <!-- ネットワークメニュー -->
+    <div id="screen-network" class="screen panel-glass">
+        <h2>NETWORK SYSTEM</h2>
+        <div id="net-init" class="menu-grid">
+            <button class="btn btn-net" onclick="Network.initHost()">ルーム作成 (HOST)</button>
+            <div class="divider">または</div>
+            <input type="text" id="net-id-input" class="room-input" placeholder="HOST ID">
+            <button class="btn btn-net" onclick="Network.joinRoom()">ルーム参加 (GUEST)</button>
+            <button class="btn btn-back" onclick="Network.closeMenu()">戻る</button>
+        </div>
+        <div id="net-host" class="menu-grid" style="display:none;">
+            <p class="sys-msg">以下のIDを共有してください</p>
+            <div id="host-id-display" class="id-box">GENERATING...</div>
+            <div class="blink">接続待ち...</div>
+            <button class="btn btn-back" onclick="location.reload()">キャンセル</button>
+        </div>
+        <div id="net-connect" class="menu-grid" style="display:none;">
+            <div class="blink" style="color:var(--primary-x)">接続中...</div>
+        </div>
+    </div>
+
+    <!-- ゲーム画面 -->
+    <div id="screen-game" class="screen">
+        <div id="game-board" class="game-board panel-glass">
+            
+            <!-- 上部エリア (P2) -->
+            <div id="area-p2" class="player-area opponent">
+                <div class="p-info">
+                    <span id="p2-role" class="role-badge">DEFENDER</span>
+                    <span class="p-name">PLAYER 2</span>
+                </div>
+                <div class="chips-container" id="p2-chips"></div>
+                <div class="cards-container" id="p2-hand"></div>
+            </div>
+
+            <!-- メインフィールド -->
+            <div class="battle-field">
+                <div class="card-slot" id="slot-p2">
+                    <div class="card card-placeholder">WAIT</div>
+                </div>
+                
+                <div class="center-info">
+                    <div id="turn-indicator">TURN 1</div>
+                    <div id="timer-display">15</div>
+                </div>
+
+                <div class="card-slot" id="slot-p1">
+                    <div class="card card-placeholder">PLACE</div>
+                </div>
+
+                <!-- 計算式構築エリア -->
+                <div id="calc-zone" class="calc-zone hidden">
+                    <div class="calc-header">TARGET: <span id="calc-target-num" style="color:#fff; font-size:1.2em;">?</span></div>
+                    <div class="calc-screen" id="calc-display"></div>
+                    <div class="calc-controls">
+                        <button class="btn-calc-action" onclick="GameApp.clearEquation()">CLEAR</button>
+                        <button class="btn-calc-action btn-fire" onclick="GameApp.submitEquation()">BREAK!</button>
+                        <button class="btn-calc-action btn-pass" onclick="GameApp.passTurn()">PASS</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ステータス -->
+            <div id="game-status">ゲーム開始</div>
+
+            <!-- 下部エリア (P1) -->
+            <div id="area-p1" class="player-area self">
+                <div class="chips-container" id="p1-chips"></div>
+                <div class="cards-container" id="p1-hand"></div>
+                <div class="p-info">
+                    <span class="p-name">PLAYER 1 <span class="you-tag">YOU</span></span>
+                    <span id="p1-role" class="role-badge attacker">ATTACKER</span>
+                </div>
+            </div>
+
+            <!-- 撤退ボタン -->
+            <button id="btn-abort" onclick="GameApp.toTitle()">TITLE</button>
+        </div>
+
+        <!-- オーバーレイ (リザルト・再戦) -->
+        <div id="overlay" class="overlay">
+            <h2 id="overlay-msg">WINNER</h2>
+            <div id="rematch-area" class="menu-grid" style="width: 250px;">
+                <div id="rematch-status" style="text-align:center; font-size:0.8rem; color:#aaa; height: 1.5em;"></div>
+                <!-- オンライン時のみ表示する再戦ボタン -->
+                <button id="btn-rematch" class="btn btn-net" onclick="GameApp.requestRematch()">再戦する</button>
+                <button class="btn btn-back" onclick="GameApp.toTitle()">タイトルへ戻る</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ルール説明 -->
+    <div id="rules-overlay" class="overlay" style="display:none; z-index:100;">
+        <div class="rules-box">
+            <h3>RULES</h3>
+            <p>1. <strong>CRASH (数字一致)</strong>: 両者カードを捨てる。</p>
+            <p>2. <strong>数字不一致</strong>: 攻め(Attacker)が計算。</p>
+            <ul style="text-align:left; font-size:0.8rem; color:#aaa;">
+                <li><strong>成功 (BREAK)</strong>: 相手の数字を作る。<br>→ 使用全カード捨て、相手も捨てる。</li>
+                <li><strong>失敗 (GUARD)</strong>: 計算不可/しない。<br>→ 攻めは捨てない。守りは捨てる。</li>
+            </ul>
+            <p>3. 先に手札がなくなった方の勝利。</p>
+            <button class="btn" onclick="document.getElementById('rules-overlay').style.display='none'">CLOSE</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    /* main.js - CALC & CRASH Logic (Rematch Added) */
+
+const AudioSys = {
+    ctx: null,
+    init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+    play(type) {
+        if(!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const t = this.ctx.currentTime;
+        if (type === 'select') {
+            osc.frequency.setValueAtTime(800, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+            osc.start(); osc.stop(t + 0.1);
+        } else if (type === 'crash') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, t);
+            osc.frequency.exponentialRampToValueAtTime(10, t + 0.3);
+            gain.gain.setValueAtTime(0.3, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.3);
+            osc.start(); osc.stop(t + 0.3);
+        } else if (type === 'break') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(440, t);
+            osc.frequency.setValueAtTime(880, t + 0.1);
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.4);
+            osc.start(); osc.stop(t + 0.4);
+        } else if (type === 'timer') {
+            osc.frequency.setValueAtTime(1000, t);
+            gain.gain.setValueAtTime(0.05, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.05);
+            osc.start(); osc.stop(t + 0.05);
+        }
+    }
+};
+
+const Network = {
+    peer: null, conn: null, isHost: false,
+    openMenu() {
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById('screen-network').classList.add('active');
+        document.getElementById('net-init').style.display = 'grid';
+        document.getElementById('net-host').style.display = 'none';
+        document.getElementById('net-connect').style.display = 'none';
+    },
+    closeMenu() {
+        if(this.peer) { this.peer.destroy(); this.peer = null; }
+        document.getElementById('screen-network').classList.remove('active');
+        document.getElementById('screen-title').classList.add('active');
+    },
+    initHost() {
+        AudioSys.init();
+        document.getElementById('net-init').style.display = 'none';
+        document.getElementById('net-host').style.display = 'grid';
+        this.peer = new Peer();
+        this.peer.on('open', id => {
+            document.getElementById('host-id-display').innerText = id;
+            this.isHost = true;
+        });
+        this.peer.on('connection', c => {
+            this.conn = c;
+            this.setupConn();
+            GameApp.initOnline(true);
+        });
+    },
+    joinRoom() {
+        const id = document.getElementById('net-id-input').value;
+        if(!id) return alert("IDを入力してください");
+        AudioSys.init();
+        document.getElementById('net-init').style.display = 'none';
+        document.getElementById('net-connect').style.display = 'grid';
+        this.peer = new Peer();
+        this.peer.on('open', () => {
+            this.conn = this.peer.connect(id);
+            this.isHost = false;
+            this.setupConn();
+        });
+        this.peer.on('error', () => { alert("接続失敗"); location.reload(); });
+    },
+    setupConn() {
+        this.conn.on('open', () => {
+            if(!this.isHost) GameApp.initOnline(false);
+        });
+        this.conn.on('data', data => GameApp.handleNetworkData(data));
+        this.conn.on('close', () => { alert("通信切断"); GameApp.toTitle(); });
+    },
+    send(type, payload) {
+        if(this.conn && this.conn.open) this.conn.send({type, payload});
+    }
+};
+
+const GameApp = {
+    mode: 'local', role: null, turn: 1, attacker: 'p1', phase: 'select',
+    players: {
+        p1: { hand: [1,2,3,5,7,9], chips: ['+','-','*','/'], selection: null },
+        p2: { hand: [1,2,3,5,7,9], chips: ['+','-','*','/'], selection: null }
+    },
+    calcBuffer: [], timer: 15, timerInterval: null, isResolving: false,
+    rematchState: { me: false, opp: false }, // 再戦管理用
+
+    initLocal() { 
+        this.mode = 'local'; 
+        this.role = 'p1'; 
+        document.getElementById('game-board').classList.add('mode-local');
+        this.startGame(); 
+    },
+    initOnline(isHost) { 
+        this.mode = 'online'; 
+        this.role = isHost ? 'p1' : 'p2'; 
+        document.getElementById('game-board').classList.remove('mode-local');
+        this.startGame(); 
+    },
+    
+    startGame() {
+        AudioSys.init();
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById('screen-game').classList.add('active');
+        this.resetGameData();
+    },
+
+    // ゲームデータ初期化（初回・再戦共通）
+    resetGameData() {
+        this.turn = 1;
+        this.attacker = (Math.random() > 0.5) ? 'p1' : 'p2';
+        this.isResolving = false;
+        this.rematchState = { me: false, opp: false };
+        
+        // UIリセット
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('rematch-status').innerText = "";
+        document.getElementById('btn-rematch').disabled = false;
+        document.getElementById('btn-rematch').innerText = "再戦する";
+
+        // ホストが先行決定情報を送る（オンライン時）
+        if(this.mode === 'online' && Network.isHost) {
+            Network.send('start_info', { attacker: this.attacker });
+        }
+        
+        ['p1','p2'].forEach(p => {
+            this.players[p].hand = [1,2,3,5,7,9];
+            this.players[p].chips = ['+','-','*','/'];
+            this.players[p].selection = null;
+        });
+        
+        this.renderUI();
+        this.startPhase('select');
+    },
+
+    startPhase(p) {
+        this.phase = p;
+        this.stopTimer();
+        this.isResolving = false;
+        
+        const calcZone = document.getElementById('calc-zone');
+        calcZone.classList.add('hidden'); 
+
+        if (p === 'select') {
+            this.players.p1.selection = null;
+            this.players.p2.selection = null;
+            document.getElementById('slot-p1').innerHTML = '<div class="card card-placeholder">PLACE</div>';
+            document.getElementById('slot-p2').innerHTML = '<div class="card card-placeholder">WAIT</div>';
+            this.setStatus(`PHASE 1: カードを選択 (残り15秒)`);
+            this.startTimer(15, () => this.autoSelect());
+        } 
+        else if (p === 'reveal') {
+            this.revealCards();
+        }
+        else if (p === 'calc') {
+            this.calcBuffer = [];
+            this.renderEquation();
+            
+            const target = (this.attacker === 'p1') ? this.players.p2.selection : this.players.p1.selection;
+            document.getElementById('calc-target-num').innerText = target;
+
+            calcZone.classList.remove('calc-pos-p1', 'calc-pos-p2', 'hidden');
+            
+            if (this.mode === 'local' && this.attacker === 'p2') {
+                calcZone.classList.add('calc-pos-p2');
+            } else {
+                calcZone.classList.add('calc-pos-p1');
+            }
+
+            if (this.isMyTurnToCalc()) {
+                const myPlayed = (this.mode === 'local' && this.attacker === 'p2') ? this.players.p2.selection : this.players[this.role].selection;
+                this.addToEquation({type:'number', value:myPlayed, from:'field'});
+                this.setStatus(`PHASE 2: 計算してください (残り15秒)`);
+                this.startTimer(15, () => this.passTurn());
+            } else {
+                this.setStatus(`PHASE 2: 相手の計算待ち...`);
+                if (this.mode === 'online') calcZone.classList.add('hidden');
+                this.startTimer(15, null); 
+            }
+        }
+        this.renderUI();
+    },
+
+    startTimer(sec, callback) {
+        this.timer = sec;
+        const disp = document.getElementById('timer-display');
+        disp.innerText = this.timer;
+        disp.classList.remove('warning');
+        if(this.timerInterval) clearInterval(this.timerInterval);
+        this.timerInterval = setInterval(() => {
+            this.timer--;
+            disp.innerText = this.timer;
+            if (this.timer <= 5) { disp.classList.add('warning'); AudioSys.play('timer'); }
+            if (this.timer <= 0) {
+                this.stopTimer();
+                if (callback && (this.mode === 'local' || this.isMyAction())) callback();
+            }
+        }, 1000);
+    },
+    stopTimer() { if(this.timerInterval) clearInterval(this.timerInterval); },
+
+    selectCard(playerKey, val) {
+        if (this.phase !== 'select') return;
+        if (this.mode === 'local') {
+             if (this.players.p1.selection === null) {
+                 this.players.p1.selection = val;
+                 this.setStatus("P1完了。P2選択中...");
+             } else if (this.players.p2.selection === null) {
+                 this.players.p2.selection = val;
+                 this.startPhase('reveal');
+             }
+             this.renderUI();
+             return;
+        }
+        this.players[this.role].selection = val;
+        Network.send('selected', { value: val });
+        this.setStatus("相手の選択を待っています...");
+        this.renderUI();
+        const opp = (this.role === 'p1') ? 'p2' : 'p1';
+        if (this.players[opp].selection !== null) this.startPhase('reveal');
+    },
+
+    autoSelect() {
+        if (this.mode === 'local') {
+            if(this.players.p1.selection === null) this.players.p1.selection = this.players.p1.hand[0];
+            if(this.players.p2.selection === null) this.players.p2.selection = this.players.p2.hand[0];
+            this.startPhase('reveal');
+        } else {
+            if (this.players[this.role].selection === null) this.selectCard(this.role, this.players[this.role].hand[0]);
+        }
+    },
+
+    revealCards() {
+        const p1Val = this.players.p1.selection;
+        const p2Val = this.players.p2.selection;
+        document.getElementById('slot-p1').innerHTML = `<div class="card selected">${p1Val}</div>`;
+        document.getElementById('slot-p2').innerHTML = `<div class="card selected">${p2Val}</div>`;
+        setTimeout(() => {
+            if (p1Val === p2Val) {
+                AudioSys.play('crash');
+                this.setStatus("CRASH!! 数字が一致！");
+                setTimeout(() => this.resolveRound('crash'), 2000);
+            } else {
+                this.startPhase('calc');
+            }
+        }, 1000);
+    },
+
+    addToEquation(item) {
+        if (!this.isMyTurnToCalc()) return;
+        this.calcBuffer.push(item);
+        this.renderEquation();
+        AudioSys.play('select');
+    },
+    clearEquation() {
+        if (!this.isMyTurnToCalc()) return;
+        this.calcBuffer = [];
+        const myPlayed = (this.mode === 'local' && this.attacker === 'p2') ? this.players.p2.selection : this.players[this.role].selection;
+        this.addToEquation({type:'number', value:myPlayed, from:'field'});
+        this.renderEquation();
+    },
+    submitEquation() {
+        if (!this.isMyTurnToCalc()) return;
+        const target = (this.attacker === 'p1') ? this.players.p2.selection : this.players.p1.selection;
+        let expr = "";
+        for (let item of this.calcBuffer) {
+            if (item.type === 'number') expr += item.value;
+            else expr += item.value;
+        }
+        try {
+            const result = Function('"use strict";return (' + expr + ')')();
+            if (result === target) {
+                AudioSys.play('break');
+                this.setStatus("BREAK SUCCESS! 数式成立！");
+                if (this.mode === 'online') Network.send('break', { buffer: this.calcBuffer });
+                setTimeout(() => this.resolveRound('break'), 1500);
+            } else {
+                this.setStatus(`不一致: ${result} != ${target}`);
+            }
+        } catch (e) { this.setStatus("無効な数式です"); }
+    },
+    passTurn() {
+        if (!this.isMyTurnToCalc()) return;
+        this.setStatus("GUARDED... 計算を諦めました");
+        if (this.mode === 'online') Network.send('guard', {});
+        setTimeout(() => this.resolveRound('guard'), 1500);
+    },
+
+    resolveRound(type) {
+        if(this.isResolving) return;
+        this.isResolving = true;
+        
+        if (type === 'crash') {
+            this.discardCard('p1', this.players.p1.selection);
+            this.discardCard('p2', this.players.p2.selection);
+        } else if (type === 'break') {
+            const att = this.attacker;
+            const def = (att === 'p1') ? 'p2' : 'p1';
+            this.discardCard(att, this.players[att].selection);
+            this.discardCard(def, this.players[def].selection);
+            if (this.mode === 'local' || this.role === att) this.applyBufferCosts(att);
+        } else if (type === 'guard') {
+            const def = (this.attacker === 'p1') ? 'p2' : 'p1';
+            this.discardCard(def, this.players[def].selection);
+        }
+        this.checkWinCondition();
+    },
+
+    applyBufferCosts(playerKey) {
+        for (let i = 1; i < this.calcBuffer.length; i++) {
+            const item = this.calcBuffer[i];
+            if (item.type === 'number' && item.from === 'hand') {
+                const idx = this.players[playerKey].hand.indexOf(item.value);
+                if (idx !== -1) this.players[playerKey].hand.splice(idx, 1);
+            } else if (item.type === 'operator') {
+                const idx = this.players[playerKey].chips.indexOf(item.value);
+                if (idx !== -1) this.players[playerKey].chips.splice(idx, 1);
+            }
+        }
+    },
+    discardCard(playerKey, val) {
+        const idx = this.players[playerKey].hand.indexOf(val);
+        if (idx !== -1) this.players[playerKey].hand.splice(idx, 1);
+    },
+
+    checkWinCondition() {
+        const p1Win = this.players.p1.hand.length === 0;
+        const p2Win = this.players.p2.hand.length === 0;
+        if (p1Win && p2Win) this.gameOver("DRAW");
+        else if (p1Win) this.gameOver("PLAYER 1 WINS");
+        else if (p2Win) this.gameOver("PLAYER 2 WINS");
+        else {
+            this.turn++;
+            this.attacker = (this.attacker === 'p1') ? 'p2' : 'p1';
+            this.startPhase('select');
+        }
+    },
+    
+    gameOver(msg) {
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('overlay-msg').innerText = msg;
+        
+        // オンラインの場合は再戦ボタンを表示、オフラインは非表示
+        const btnRematch = document.getElementById('btn-rematch');
+        if (this.mode === 'online') {
+            btnRematch.style.display = 'block';
+        } else {
+            btnRematch.style.display = 'none';
+        }
+    },
+
+    // --- Rematch Logic ---
+    requestRematch() {
+        if(this.mode !== 'online') return;
+        this.rematchState.me = true;
+        document.getElementById('btn-rematch').innerText = "承認待ち...";
+        document.getElementById('btn-rematch').disabled = true;
+        document.getElementById('rematch-status').innerText = "相手の応答を待っています...";
+        Network.send('rematch_req', {});
+        this.checkRematchStart();
+    },
+
+    checkRematchStart() {
+        // ホストのみが開始権限を持つ（両者の合意を確認して開始信号を送る）
+        if (Network.isHost && this.rematchState.me && this.rematchState.opp) {
+            this.resetGameData(); // ホスト側リセット（start_infoも送られる）
+        }
+    },
+
+    toTitle() {
+        this.stopTimer();
+        if (this.mode === 'online') {
+            if (Network.peer) { Network.peer.destroy(); Network.peer = null; }
+            Network.conn = null;
+            Network.isHost = false;
+        }
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('screen-title').classList.add('active');
+        document.getElementById('game-board').classList.remove('mode-local');
+    },
+
+    renderUI() {
+        const self = this.role;
+        const opp = (self === 'p1') ? 'p2' : 'p1';
+        
+        document.getElementById('turn-indicator').innerText = `TURN ${this.turn}`;
+
+        const p1Area = document.getElementById('area-p1');
+        const p2Area = document.getElementById('area-p2');
+        const p1Role = document.getElementById('p1-role');
+        const p2Role = document.getElementById('p2-role');
+
+        const isP1Attacker = (this.attacker === 'p1');
+        
+        p1Area.className = `player-area self ${isP1Attacker ? 'is-attacker' : 'is-defender'}`;
+        p1Role.innerText = isP1Attacker ? 'ATTACKER' : 'DEFENDER';
+        
+        p2Area.className = `player-area opponent ${!isP1Attacker ? 'is-attacker' : 'is-defender'}`;
+        p2Role.innerText = !isP1Attacker ? 'ATTACKER' : 'DEFENDER';
+
+        this.renderHand(self, 'p1-hand', 'p1-chips');
+        this.renderHand(opp, 'p2-hand', 'p2-chips');
+        
+        if (this.phase === 'select') {
+             const p1Sel = this.players[self].selection;
+             const p2Sel = this.players[opp].selection;
+             document.getElementById('slot-p1').innerHTML = p1Sel ? `<div class="card card-back">✔</div>` : `<div class="card card-placeholder">YOU</div>`;
+             document.getElementById('slot-p2').innerHTML = p2Sel ? `<div class="card card-back">✔</div>` : `<div class="card card-placeholder">OPP</div>`;
+        }
+    },
+
+    renderHand(playerKey, handId, chipsId) {
+        const p = this.players[playerKey];
+        const canControl = (this.mode === 'local') ? true : (playerKey === this.role);
+        const hContainer = document.getElementById(handId);
+        const cContainer = document.getElementById(chipsId);
+        
+        hContainer.innerHTML = '';
+        p.hand.forEach(val => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerText = val;
+            
+            if (this.phase === 'select' && canControl) {
+                 if (this.mode === 'local') {
+                     if (this.players[playerKey].selection === null) div.onclick = () => this.selectCard(playerKey, val); // playerKey渡し
+                     else div.classList.add('disabled');
+                 } else {
+                     if (p.selection === null) div.onclick = () => this.selectCard(playerKey, val);
+                     else div.classList.add('disabled');
+                 }
+            } else if (this.phase === 'calc' && canControl && this.attacker === playerKey) {
+                 div.onclick = () => this.addToEquation({type:'number', value:val, from:'hand'});
+            } else {
+                div.classList.add('disabled');
+            }
+            hContainer.appendChild(div);
+        });
+
+        cContainer.innerHTML = '';
+        const allChips = ['+','-','*','/'];
+        allChips.forEach(op => {
+            const div = document.createElement('div');
+            div.className = 'chip';
+            div.innerText = op;
+            if (!p.chips.includes(op)) div.classList.add('used');
+            else if (this.phase === 'calc' && canControl && this.attacker === playerKey) {
+                 div.onclick = () => this.addToEquation({type:'operator', value:op});
+            }
+            cContainer.appendChild(div);
+        });
+    },
+    renderEquation() {
+        const disp = document.getElementById('calc-display');
+        disp.innerHTML = '';
+        this.calcBuffer.forEach(item => {
+            const span = document.createElement('span');
+            span.innerText = item.value + " ";
+            disp.appendChild(span);
+        });
+    },
+    setStatus(msg) { document.getElementById('game-status').innerText = msg; },
+    isMyAction() {
+        if (this.mode === 'local') return true;
+        if (this.phase === 'select') return this.players[this.role].selection === null;
+        if (this.phase === 'calc') return this.attacker === this.role;
+        return false;
+    },
+    isMyTurnToCalc() {
+        if (this.phase !== 'calc') return false;
+        if (this.mode === 'local') return true; 
+        return this.attacker === this.role;
+    },
+    handleNetworkData(data) {
+        const type = data.type;
+        const pl = data.payload;
+        if (type === 'start_info') { 
+            // ゲスト側：ホストからの開始信号を受け取ってリセット
+            this.attacker = pl.attacker;
+            this.resetGameData(); // ゲストもリセット実行（ただしstart_infoは送らない）
+        } 
+        else if (type === 'selected') {
+            const opp = (this.role === 'p1') ? 'p2' : 'p1';
+            this.players[opp].selection = pl.value;
+            this.renderUI();
+            if (this.players[this.role].selection !== null) this.startPhase('reveal');
+        }
+        else if (type === 'break') {
+            this.calcBuffer = pl.buffer;
+            this.setStatus("相手が計算を成功させました！");
+            const oppRole = (this.role === 'p1') ? 'p2' : 'p1';
+            this.applyBufferCosts(oppRole); 
+            setTimeout(() => this.resolveRound('break'), 1500);
+        }
+        else if (type === 'guard') {
+            this.setStatus("相手が計算を諦めました");
+            setTimeout(() => this.resolveRound('guard'), 1500);
+        }
+        else if (type === 'rematch_req') {
+            this.rematchState.opp = true;
+            document.getElementById('rematch-status').innerText = "相手が再戦を希望しています！";
+            // もし自分も既に押していたらホストが開始判定
+            this.checkRematchStart();
+        }
+    }
+};
+</script>
+</body>
+</html>
