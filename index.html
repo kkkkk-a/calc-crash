@@ -6,6 +6,7 @@
     <title>カルク＆クラッシュ (FIXED)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <style>
 :root {
     --bg-color: #0a0b10;
@@ -196,6 +197,27 @@ h2 { letter-spacing: 2px; color: #fff; text-align: center; margin-bottom: 20px; 
     .battle-field { padding: 10px 0; gap: 5px; }
     #timer-display { font-size: 2rem; }
 }
+    
+/* QRコード表示エリア（白背景必須） */
+#qrcode-display {
+    background: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px auto;
+    width: 128px; /* QRサイズに合わせる */
+    height: 128px;
+}
+/* QRコード画像がはみ出さないように */
+#qrcode-display img { display: block; }
+
+/* カメラ読み取りエリア */
+#qr-reader {
+    width: 100%;
+    max-width: 300px;
+    margin: 10px auto;
+    border: 1px solid var(--primary-x);
+    display: none; /* 初期は非表示 */
+}
 </style>
 </head>
 <body>
@@ -219,25 +241,43 @@ h2 { letter-spacing: 2px; color: #fff; text-align: center; margin-bottom: 20px; 
     </div>
 
     <!-- ネットワークメニュー -->
-    <div id="screen-network" class="screen panel-glass">
-        <h2>NETWORK SYSTEM</h2>
-        <div id="net-init" class="menu-grid">
-            <button class="btn btn-net" onclick="Network.initHost()">ルーム作成 (HOST)</button>
-            <div class="divider">または</div>
+<div id="screen-network" class="screen panel-glass">
+    <h2>NETWORK SYSTEM</h2>
+    
+    <!-- 初期メニュー (GUEST側にボタンとリーダーを追加) -->
+    <div id="net-init" class="menu-grid">
+        <button class="btn btn-net" onclick="Network.initHost()">ルーム作成 (HOST)</button>
+        <div class="divider">または</div>
+        
+        <!-- 追加: カメラ読み取りエリア -->
+        <div id="qr-reader"></div>
+        
+        <!-- 変更: ID入力欄の横または上にスキャンボタン配置 -->
+        <div style="display:flex; gap:5px;">
             <input type="text" id="net-id-input" class="room-input" placeholder="HOST ID">
-            <button class="btn btn-net" onclick="Network.joinRoom()">ルーム参加 (GUEST)</button>
-            <button class="btn btn-back" onclick="Network.closeMenu()">戻る</button>
+            <button class="btn btn-local" onclick="Network.startScanner()" style="padding:10px;">📷</button>
         </div>
-        <div id="net-host" class="menu-grid" style="display:none;">
-            <p class="sys-msg">以下のIDを共有してください</p>
-            <div id="host-id-display" class="id-box">GENERATING...</div>
-            <div class="blink">接続待ち...</div>
-            <button class="btn btn-back" onclick="location.reload()">キャンセル</button>
-        </div>
-        <div id="net-connect" class="menu-grid" style="display:none;">
-            <div class="blink" style="color:var(--primary-x)">接続中...</div>
-        </div>
+
+        <button class="btn btn-net" onclick="Network.joinRoom()">ルーム参加 (GUEST)</button>
+        <button class="btn btn-back" onclick="Network.closeMenu()">戻る</button>
     </div>
+
+    <!-- HOST画面 (QR表示エリアを追加) -->
+    <div id="net-host" class="menu-grid" style="display:none;">
+        <p class="sys-msg">以下のIDを共有、またはQRをスキャン</p>
+        
+        <!-- 追加: QRコード表示用 -->
+        <div id="qrcode-display"></div>
+        
+        <div id="host-id-display" class="id-box">GENERATING...</div>
+        <div class="blink">接続待ち...</div>
+        <button class="btn btn-back" onclick="location.reload()">キャンセル</button>
+    </div>
+
+    <div id="net-connect" class="menu-grid" style="display:none;">
+        <div class="blink" style="color:var(--primary-x)">接続中...</div>
+    </div>
+</div>
 
     <!-- ゲーム画面 -->
     <div id="screen-game" class="screen">
@@ -369,7 +409,8 @@ const AudioSys = {
 };
 
 const Network = {
-    peer: null, conn: null, isHost: false,
+    peer: null, conn: null, isHost: false, html5QrcodeScanner: null, // scanner変数を追加
+
     openMenu() {
         AudioSys.init();
         document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
@@ -377,33 +418,93 @@ const Network = {
         document.getElementById('net-init').style.display = 'grid';
         document.getElementById('net-host').style.display = 'none';
         document.getElementById('net-connect').style.display = 'none';
+        
+        // メニューを開くたびにスキャナ表示リセット
+        document.getElementById('qr-reader').style.display = 'none';
     },
+
     closeMenu() {
+        this.stopScanner(); // メニューを閉じるときはカメラも停止
         if(this.peer) { this.peer.destroy(); this.peer = null; }
         document.getElementById('screen-network').classList.remove('active');
         document.getElementById('screen-title').classList.add('active');
     },
+
+    // HOST初期化（QR生成を追加）
     initHost() {
         AudioSys.init();
         document.getElementById('net-init').style.display = 'none';
         document.getElementById('net-host').style.display = 'grid';
+        
         this.peer = new Peer();
         this.peer.on('open', id => {
             document.getElementById('host-id-display').innerText = id;
             this.isHost = true;
+
+            // --- 追加: QRコード生成 ---
+            const qrBox = document.getElementById("qrcode-display");
+            qrBox.innerHTML = ""; // 前回の残りをクリア
+            new QRCode(qrBox, {
+                text: id,
+                width: 128,
+                height: 128
+            });
+            // ------------------------
         });
+
         this.peer.on('connection', c => {
             this.conn = c;
             this.setupConn();
             GameApp.initOnline(true);
         });
     },
+
+    // 追加: QRスキャナー起動
+    startScanner() {
+        const readerElem = document.getElementById('qr-reader');
+        // 表示切り替え
+        if (readerElem.style.display === 'block') {
+            this.stopScanner();
+            return;
+        }
+        readerElem.style.display = 'block';
+
+        this.html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader", { fps: 10, qrbox: 200 }
+        );
+
+        this.html5QrcodeScanner.render(
+            (decodedText) => {
+                // 成功時
+                document.getElementById('net-id-input').value = decodedText;
+                AudioSys.play('select');
+                this.stopScanner(); // 読み取れたらカメラ停止
+                // そのまま自動参加したければ this.joinRoom(); を呼ぶ
+            },
+            (errorMessage) => {
+                // 読み取り失敗は無視（コンソールログ抑制のため何もしない）
+            }
+        );
+    },
+
+    // 追加: スキャナー停止
+    stopScanner() {
+        if (this.html5QrcodeScanner) {
+            this.html5QrcodeScanner.clear().catch(error => console.error(error));
+            this.html5QrcodeScanner = null;
+        }
+        document.getElementById('qr-reader').style.display = 'none';
+    },
+
     joinRoom() {
+        this.stopScanner(); // 念のため停止
         const id = document.getElementById('net-id-input').value;
         if(!id) return alert("IDを入力してください");
+        
         AudioSys.init();
         document.getElementById('net-init').style.display = 'none';
         document.getElementById('net-connect').style.display = 'grid';
+        
         this.peer = new Peer();
         this.peer.on('open', () => {
             this.conn = this.peer.connect(id);
@@ -412,6 +513,7 @@ const Network = {
         });
         this.peer.on('error', () => { alert("接続失敗"); location.reload(); });
     },
+
     setupConn() {
         this.conn.on('open', () => {
             if(!this.isHost) GameApp.initOnline(false);
