@@ -3,67 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>カルク＆クラッシュ</title>
+    <title>カルク＆クラッシュ (FINAL)</title>
     
-    <!-- 必要なライブラリの読み込み -->
+    <!-- Libraries -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;800&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
 
 <style>
-/* --- デザイン設定 --- */
 :root {
-    --bg-color: #f4f7f6;
+    --bg-color: #f0f4f8;
     --text-color: #2c3e50;
-    --primary: #3498db; /* 青（自分/守り） */
-    --accent: #e74c3c;  /* 赤（敵/攻撃） */
-    --gold: #f1c40f;    /* 強調 */
-    --card-w: 55px;
-    --card-h: 75px;
+    --primary: #3498db; /* 青 (守り/自分) */
+    --accent: #e74c3c;  /* 赤 (攻撃/相手) */
+    --gold: #f1c40f;
+    --panel-bg: #ffffff;
 }
 
 body {
     margin: 0; background: var(--bg-color); color: var(--text-color);
     font-family: 'M PLUS Rounded 1c', sans-serif;
-    height: 100vh; display: flex; justify-content: center; align-items: center;
-    touch-action: manipulation; user-select: none; overflow: hidden;
+    height: 100vh; overflow: hidden; 
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    display: flex; justify-content: center; align-items: center;
 }
 
 /* 画面管理 */
 .screen {
     position: absolute; width: 100%; height: 100%; max-width: 600px;
     display: none; flex-direction: column; align-items: center; justify-content: center;
-    background: var(--bg-color); transition: opacity 0.3s;
+    background: var(--bg-color); z-index: 1; transition: opacity 0.3s;
 }
 .screen.active { display: flex; z-index: 10; }
 
-/* 共通パーツ */
-h1 { font-size: 2rem; margin-bottom: 30px; text-align: center; line-height: 1.2; color: #34495e; }
-h2 { font-size: 1.5rem; margin-bottom: 20px; color: #34495e; }
+/* HUBボタン */
+.nav-return-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: rgba(52, 152, 219, 0.15);
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 1px solid rgba(52, 152, 219, 0.4);
+    position: absolute; top: 20px; left: 20px; z-index: 100;
+}
+.nav-return-btn:hover { background: rgba(52, 152, 219, 0.3); }
+
+/* 共通UI */
+h1 { font-size: 2.2rem; margin-bottom: 10px; text-align: center; color: #34495e; }
+.desc { font-size: 0.9rem; color: #7f8c8d; margin-bottom: 30px; text-align: center; }
 
 .btn {
-    width: 80%; max-width: 300px; padding: 18px; margin: 8px;
+    width: 80%; max-width: 300px; padding: 18px; margin: 10px;
     border: none; border-radius: 12px;
     font-size: 1.1rem; font-weight: bold; cursor: pointer;
     box-shadow: 0 4px 0 rgba(0,0,0,0.1); transition: transform 0.1s;
-    background: #fff; color: #555; border: 2px solid #ddd;
+    background: #fff; color: #555; border: 2px solid #bdc3c7;
 }
 .btn:active { transform: translateY(4px); box-shadow: none; }
 .btn-primary { background: var(--primary); color: #fff; border: none; box-shadow: 0 4px 0 #2980b9; }
 .btn-accent { background: var(--accent); color: #fff; border: none; box-shadow: 0 4px 0 #c0392b; }
 
 .input-box {
-    font-size: 1.2rem; padding: 12px; width: 80%; text-align: center;
-    border: 2px solid #ccc; border-radius: 8px; margin: 10px 0;
-    font-family: inherit;
+    font-size: 1.2rem; padding: 12px; width: 70%; text-align: center;
+    border: 2px solid #bdc3c7; border-radius: 8px; margin: 10px 0;
 }
 
-/* QRエリア */
-#qr-display-area { background: #fff; padding: 15px; border-radius: 10px; margin: 15px; }
-#camera-wrapper { width: 90%; max-width: 300px; margin: 10px; border: 2px solid #333; display: none; background: #000; }
+/* ネットワーク画面 */
+#qr-display { background: #fff; padding: 15px; border-radius: 10px; margin: 15px; }
+#camera-wrapper { width: 90%; max-width: 300px; margin: 10px; border: 2px solid #333; border-radius: 8px; overflow: hidden; display: none; }
 
-/* --- ゲーム画面レイアウト --- */
+/* ゲーム画面レイアウト */
 .game-layout {
     width: 100%; height: 100%; display: flex; flex-direction: column;
     justify-content: space-between; padding: 10px; box-sizing: border-box;
@@ -72,141 +85,177 @@ h2 { font-size: 1.5rem; margin-bottom: 20px; color: #34495e; }
 
 /* プレイヤーエリア */
 .player-zone {
-    background: rgba(255,255,255,0.6); border-radius: 15px; padding: 10px;
-    transition: 0.3s; border: 3px solid transparent; min-height: 110px;
+    background: rgba(255,255,255,0.7); border-radius: 15px; padding: 10px;
+    transition: 0.3s; border: 3px solid transparent; min-height: 120px;
 }
-.player-zone.turn-atk { border-color: var(--accent); background: #fff0f0; } /* 攻撃中 */
-.player-zone.turn-def { border-color: var(--primary); background: #f0f8ff; } /* 守備中 */
+.player-zone.turn-atk { border-color: var(--accent); background: #fff5f5; }
+.player-zone.turn-def { border-color: var(--primary); background: #f0f8ff; }
 
 .zone-label { font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; }
-.role-badge { padding: 2px 6px; border-radius: 4px; color: #fff; font-size: 0.7rem; }
+.role-badge { padding: 3px 8px; border-radius: 4px; color: #fff; font-size: 0.7rem; }
 .badge-atk { background: var(--accent); }
 .badge-def { background: var(--primary); }
 
-.hand { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; }
+.hand-container { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; }
 
-/* カードスタイル */
+/* カード */
 .card {
-    width: var(--card-w); height: var(--card-h);
-    background: #fff; border: 2px solid #ccc; border-radius: 8px;
+    width: 50px; height: 70px;
+    background: #fff; border: 2px solid #bdc3c7; border-radius: 8px;
     display: flex; justify-content: center; align-items: center;
-    font-size: 1.6rem; font-weight: 900; color: #333;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.1); cursor: pointer; position: relative;
+    font-size: 1.5rem; font-weight: 900; color: #333;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.1); cursor: pointer; position: relative;
+    user-select: none;
 }
-.card.selected { border-color: var(--gold); background: #fffbe6; transform: translateY(-5px); box-shadow: 0 5px 10px rgba(241, 196, 15, 0.4); }
+.card:active { transform: translateY(3px); box-shadow: none; }
+.card.selected { border-color: var(--gold); background: #fffbe6; transform: translateY(-3px); box-shadow: 0 5px 0 rgba(241, 196, 15, 0.4); }
 .card.disabled { opacity: 0.4; pointer-events: none; background: #eee; }
-.card-back { background: #34495e; border-color: #2c3e50; }
-.card-back::after { content: "?"; color: rgba(255,255,255,0.1); font-size: 2rem; }
+.card-back { background: #34495e; border-color: #2c3e50; color: transparent; }
 
 /* 中央フィールド */
 .center-field { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
 .battle-slots { display: flex; align-items: center; gap: 20px; }
 .slot {
-    width: 65px; height: 90px; border: 2px dashed #bbb; border-radius: 10px;
-    display: flex; justify-content: center; align-items: center; font-size: 0.8rem; color: #aaa;
+    width: 60px; height: 85px; border: 2px dashed #bdc3c7; border-radius: 10px;
+    display: flex; justify-content: center; align-items: center; font-size: 0.8rem; color: #95a5a6;
+    background: rgba(255,255,255,0.5);
 }
 
-/* ガイドメッセージ */
 .guide-msg {
-    background: #2c3e50; color: #fff; padding: 10px 25px; border-radius: 50px;
-    font-size: 1rem; font-weight: bold; text-align: center;
+    background: #34495e; color: #fff; padding: 10px 20px; border-radius: 50px;
+    font-size: 0.95rem; font-weight: bold; text-align: center;
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: popIn 0.3s ease; width: 90%; max-width: 400px;
 }
 @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-/* 計算機パネル (下からスライド) */
+/* 計算パネル (下からスライド) */
 .calc-panel {
-    position: absolute; bottom: 0; left: 0; width: 100%; height: 65%;
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 70%;
     background: #fff; border-radius: 20px 20px 0 0;
-    box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
-    display: flex; flex-direction: column; padding: 20px; box-sizing: border-box;
+    box-shadow: 0 -5px 30px rgba(0,0,0,0.2);
+    display: flex; flex-direction: column; padding: 15px; box-sizing: border-box;
     transform: translateY(110%); transition: transform 0.3s ease-out; z-index: 50;
 }
 .calc-panel.show { transform: translateY(0); }
 
-.calc-header { text-align: center; margin-bottom: 10px; color: #666; font-size: 0.9rem; }
-.calc-target-num { font-size: 2.2rem; font-weight: bold; color: var(--accent); line-height: 1; }
+.calc-header { text-align: center; margin-bottom: 10px; color: #7f8c8d; font-size: 0.9rem; }
+.calc-target-num { font-size: 2.5rem; font-weight: bold; color: var(--accent); line-height: 1; margin-left: 10px; }
 
 .calc-display {
     background: #ecf0f1; border-radius: 8px; padding: 10px;
-    font-size: 1.8rem; text-align: right; font-family: monospace;
-    margin-bottom: 15px; height: 40px; border: 1px solid #ddd;
+    font-size: 1.8rem; text-align: right; font-family: 'Roboto Mono', monospace;
+    margin-bottom: 15px; height: 40px; border: 2px solid #bdc3c7; overflow: hidden;
+    white-space: nowrap; color: #2c3e50;
 }
 
-.calc-chips { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+.calc-chips { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; }
 .chip {
-    width: 45px; height: 45px; border-radius: 50%; background: #fff;
-    border: 2px solid #ddd; display: flex; justify-content: center; align-items: center;
-    font-size: 1.2rem; font-weight: bold; cursor: pointer;
+    width: 50px; height: 50px; border-radius: 50%; background: #fff;
+    border: 2px solid #bdc3c7; display: flex; justify-content: center; align-items: center;
+    font-size: 1.4rem; font-weight: bold; cursor: pointer; color: #3498db;
+    box-shadow: 0 3px 0 #bdc3c7;
 }
-.chip:active { background: #ddd; }
-.chip.used { opacity: 0.3; pointer-events: none; border-color: #eee; }
+.chip:active { transform: translateY(3px); box-shadow: none; }
+.chip.used { opacity: 0.3; pointer-events: none; border-color: #ecf0f1; box-shadow: none; transform: none; }
 
-.calc-hand-area { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: auto; }
+.calc-hand-area { 
+    display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; 
+    margin-bottom: auto; padding: 10px; background: #f8f9fa; border-radius: 10px;
+}
 
 .calc-btns { display: flex; gap: 10px; margin-top: 10px; }
-.btn-calc { flex: 1; padding: 15px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; color: #fff; }
-.btn-clear { background: #95a5a6; }
-.btn-pass { background: #7f8c8d; }
-.btn-go { background: var(--accent); box-shadow: 0 4px 0 #c0392b; }
+.btn-calc { flex: 1; padding: 15px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; color: #fff; font-size: 1rem; }
+.btn-clear { background: #95a5a6; box-shadow: 0 4px 0 #7f8c8d; }
+.btn-pass { background: #34495e; box-shadow: 0 4px 0 #2c3e50; }
+.btn-go { background: var(--accent); box-shadow: 0 4px 0 #c0392b; flex: 2; }
+.btn-calc:active { transform: translateY(4px); box-shadow: none; }
 
 /* 待機オーバーレイ */
 #wait-overlay {
     position: absolute; top:0; left:0; width:100%; height:100%;
-    background: rgba(255,255,255,0.7); backdrop-filter: blur(2px);
+    background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);
     display: none; justify-content: center; align-items: center;
-    z-index: 20; font-weight: bold; color: #2c3e50; font-size: 1.2rem;
-    flex-direction: column; gap: 10px;
+    z-index: 20; font-weight: bold; color: #2c3e50; font-size: 1.4rem;
+    flex-direction: column; gap: 15px;
 }
 
 /* モーダル (結果表示) */
-#result-modal {
-    position: fixed; top:0; left:0; width:100%; height:100%;
-    background: rgba(0,0,0,0.85); z-index: 100;
-    display: none; flex-direction: column; justify-content: center; align-items: center;
+.modal {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: rgba(0,0,0,0.85); 
+    z-index: 100; /* これで最前面にきます */
+    display: none; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center;
     color: #fff;
 }
-#result-title { font-size: 3rem; margin-bottom: 20px; text-shadow: 0 0 10px var(--gold); }
+#result-title { font-size: 3.5rem; margin-bottom: 20px; text-shadow: 0 0 10px var(--gold); }
+
+.blink { animation: blink 1s infinite alternate; }
+@keyframes blink { from { opacity: 0.4; } to { opacity: 1; } }
+
+/* ルールパネル内のテキスト調整 */
+#rule-modal p {
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed #eee;
+}
+#rule-modal b {
+    color: var(--primary);
+}
+.timer-danger {
+    color: #ff0000 !important;
+    animation: blink 0.5s infinite alternate;
+}
 </style>
 </head>
 <body>
-
+<div id="rule-modal" class="modal" style="display:none; background:rgba(0,0,0,0.95);">
+    <div style="background:#fff; color:#333; width:90%; max-width:450px; padding:20px; border-radius:15px; max-height:80vh; overflow-y:auto;">
+        <h2 style="margin-top:0; color:var(--accent);">あそびかた</h2>
+        <div style="text-align:left; font-size:0.9rem; line-height:1.6;">
+            <p><b>【勝利条件】</b><br>先に手札をすべてなくした人の勝ち！</p>
+            <p><b>① カード選択</b><br>お互いに手札から1枚選んで場に出します。</p>
+            <p><b>② 数字の判定</b><br>
+                ・<b>数字が同じ（クラッシュ）：</b><br>ラッキー！お互いにそのカードを捨てて次のターンへ。<br>
+                ・<b>数字がちがう：</b><br>「攻撃」と「守り」に分かれて<b>計算バトル</b>開始！
+            </p>
+            <p><b>③ 計算バトル（攻撃側の番）</b><br>
+                攻撃側は<b>「自分の出したカード」</b>を使い、手札や記号（＋－×÷）を組み合わせて<b>「相手の数字」</b>を作ります。<br>
+                ・<b>計算成功（ブレイク）：</b><br>相手のカードを捨てさせ、自分も出したカードと<b>式に使った手札</b>を捨てます。<br>
+                ・<b>あきらめる（ガード）：</b><br>相手のカードだけが捨てられ、自分のカードは手札に戻ります。
+            </p>
+            <p style="font-size:0.8rem; color:#666; border-top:1px solid #eee; pt:10px;">
+                ※計算に使う手札が多いほど、一度にたくさんカードを減らせますが、失敗のリスクも高まります！
+            </p>
+        </div>
+        <button class="btn btn-primary" style="width:100%; margin:10px 0 0 0;" onclick="document.getElementById('rule-modal').style.display='none'">わかった！</button>
+    </div>
+</div>
 <!-- 1. タイトル画面 -->
 <div id="screen-title" class="screen active">
-    <div style="font-size:3rem; margin-bottom:10px;">🧮💥</div>
-    <h1>カルク＆クラッシュ<br><span style="font-size:1rem; color:#7f8c8d;">数字を作って相手を壊せ！</span></h1>
+    <a href="https://kkkkk-a.github.io/game-hub/" class="nav-return-btn" title="Game Hub">HUB</a>
+    
+    <div style="font-size:3rem; margin-bottom:5px;">🧮💥</div>
+    <h1>カルク＆クラッシュ</h1>
+    <div class="desc">数字を作って相手の手札を破壊せよ！</div>
     
     <button class="btn btn-primary" onclick="Game.initLocal()">ひとりで練習 (CPU風)</button>
     <button class="btn btn-accent" onclick="Network.openMenu()">友だちと対戦 (通信)</button>
-<a href="https://kkkkk-a.github.io/game-hub/"
-   class="nav-return-btn"
-   title="Game Hub"style=".nav-return-btn {
-    display: inline-block;
-    padding: 8px 16px;
-    border-radius: 10px;
-    background: rgba(0, 210, 255, 0.15);
-    color: #00d2ff;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.85rem;
-    border: 1px solid rgba(0, 210, 255, 0.4);
-}
-
-.nav-return-btn:hover {
-    background: rgba(0, 210, 255, 0.3);
-}
-">
-  HUB
-</a>
-
+    <div style="margin-top:20px; font-size:0.8rem; color:#bdc3c7;">FINAL FIX</div>
+    <button class="btn" style="background:#95a5a6; color:#fff; border:none;" onclick="document.getElementById('rule-modal').style.display='flex'">ルールを見る</button>
 </div>
 
 <!-- 2. 通信メニュー -->
 <div id="screen-network" class="screen">
     <h2>通信対戦メニュー</h2>
     
-    <!-- 選択画面 -->
     <div id="net-select-ui" style="display:flex; flex-direction:column; align-items:center; width:100%;">
         <button class="btn btn-primary" onclick="Network.initHost()">部屋をつくる (ホスト)</button>
         <div style="margin:10px; color:#999;">または</div>
@@ -214,19 +263,17 @@ h2 { font-size: 1.5rem; margin-bottom: 20px; color: #34495e; }
         <button class="btn" onclick="location.reload()" style="margin-top:20px;">もどる</button>
     </div>
 
-    <!-- ホスト画面: QR表示 -->
     <div id="net-host-ui" style="display:none; flex-direction:column; align-items:center; width:100%;">
         <p>このQRを相手に読み取ってもらおう</p>
-        <div id="qr-display-area"></div>
+        <div id="qr-display"></div>
         <div style="font-size:0.9rem; margin-bottom:10px;">コード: <span id="host-id-text" style="font-weight:bold; color:var(--primary);">生成中...</span></div>
-        <div class="guide-msg" style="background:var(--accent);">相手の接続待ち...</div>
+        <div class="guide-msg blink" style="background:var(--accent);">相手の接続待ち...</div>
         <button class="btn" onclick="location.reload()" style="margin-top:20px;">キャンセル</button>
     </div>
 
-    <!-- ゲスト画面: カメラ/入力 -->
     <div id="net-guest-ui" style="display:none; flex-direction:column; align-items:center; width:100%;">
         <div id="camera-wrapper"></div>
-        <button class="btn btn-primary" onclick="Network.startCamera()">📷 QRコードを読み取る</button>
+        <button class="btn btn-primary" onclick="Network.startCamera()">📷 QRスキャン</button>
         <div style="margin:10px; color:#999;">または</div>
         <input type="text" id="input-host-id" class="input-box" placeholder="招待コードを入力">
         <button class="btn btn-accent" onclick="Network.joinByInput()">コードで参加</button>
@@ -244,15 +291,18 @@ h2 { font-size: 1.5rem; margin-bottom: 20px; color: #34495e; }
                 <span>あいて</span>
                 <span id="badge-p2" class="role-badge"></span>
             </div>
-            <div id="hand-p2" class="hand"></div>
+            <div id="hand-p2" class="hand-container"></div>
         </div>
 
         <!-- 中央フィールド -->
         <div class="center-field">
+            <div id="game-timer" style="font-family:'Roboto Mono'; font-size:2rem; font-weight:bold; color:var(--accent); margin-bottom:5px; text-shadow:0 0 10px rgba(231,76,60,0.3); display:none;">
+    20
+</div>
             <div id="guide-text" class="guide-msg">ゲーム開始！</div>
             <div class="battle-slots">
                 <div id="slot-p2" class="slot">あいて</div>
-                <div style="font-weight:bold; color:#ccc;">VS</div>
+                <div style="font-weight:bold; color:#bdc3c7;">VS</div>
                 <div id="slot-p1" class="slot">あなた</div>
             </div>
         </div>
@@ -263,47 +313,55 @@ h2 { font-size: 1.5rem; margin-bottom: 20px; color: #34495e; }
                 <span>あなた</span>
                 <span id="badge-p1" class="role-badge"></span>
             </div>
-            <div id="hand-p1" class="hand"></div>
+            <div id="hand-p1" class="hand-container"></div>
         </div>
 
-        <!-- 計算パネル (オーバーレイ) -->
+        <!-- 計算パネル -->
         <div id="calc-panel" class="calc-panel">
             <div class="calc-header">
-                目標の数字を作れ！<br>
-                <span id="calc-target" class="calc-target-num">?</span>
+                目標の数字を作れ！ <span id="calc-target" class="calc-target-num">?</span>
             </div>
             <div id="calc-disp" class="calc-display"></div>
             
-            <div style="text-align:center; font-size:0.8rem; color:#888; margin-bottom:5px;">記号とカードをタップ</div>
             <div id="calc-chips" class="calc-chips"></div>
             <div id="calc-hand" class="calc-hand-area"></div>
 
             <div class="calc-btns">
                 <button class="btn-calc btn-clear" onclick="Game.calcClear()">クリア</button>
                 <button class="btn-calc btn-pass" onclick="Game.calcPass()">パス</button>
-                <button class="btn-calc btn-go" onclick="Game.calcSubmit()">決定！</button>
+                <button class="btn-calc btn-go" onclick="Game.calcSubmit()">決定</button>
             </div>
         </div>
 
         <!-- 待機オーバーレイ -->
         <div id="wait-overlay">
-            <div style="font-size:3rem;">⏳</div>
+            <div class="blink" style="font-size:3rem;">⏳</div>
             <div id="wait-text">相手を待っています...</div>
         </div>
     </div>
 </div>
 
 <!-- 4. 結果画面 -->
-<div id="result-modal">
+<div id="result-modal" class="modal">
     <div id="result-title">WIN!</div>
-    <div id="result-detail" style="margin-bottom:30px;">相手の手札が尽きました</div>
+    <div id="result-detail" style="margin-bottom:30px; font-size:1.2rem;">相手の手札が尽きました</div>
     <button class="btn btn-primary" onclick="location.reload()">タイトルに戻る</button>
 </div>
 
 <script>
+    // タイトル画面などで「ルールを見る」を押した時の処理
+// (HTML側の onclick で完結していますが、Escキーで閉じたい場合は以下を追加)
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.getElementById('rule-modal').style.display = 'none';
+    }
+});
 /**
- * CALC & CRASH - COMPLETE EDITION
- * 日本語化・操作性改善・QR対応
+ * CALC & CRASH - FINAL FIX
+ * - 日本語化
+ * - 電卓風UIによるスマホ操作性向上
+ * - 安全な計算ロジック
+ * - HUBボタン搭載
  */
 
 // 音声管理
@@ -318,24 +376,13 @@ const Sound = {
         o.connect(g); g.connect(this.ctx.destination);
         
         if(type === 'select') {
-            o.frequency.setValueAtTime(800, t);
-            g.gain.exponentialRampToValueAtTime(0.01, t+0.1);
-            o.start(); o.stop(t+0.1);
+            o.frequency.setValueAtTime(800, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.1); o.start(); o.stop(t+0.1);
         } else if(type === 'crash') {
-            o.type = 'sawtooth';
-            o.frequency.setValueAtTime(100, t);
-            g.gain.exponentialRampToValueAtTime(0.01, t+0.3);
-            o.start(); o.stop(t+0.3);
+            o.type = 'sawtooth'; o.frequency.setValueAtTime(100, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.3); o.start(); o.stop(t+0.3);
         } else if(type === 'win') {
-            o.type = 'triangle';
-            o.frequency.setValueAtTime(440, t); o.frequency.setValueAtTime(880, t+0.1);
-            g.gain.linearRampToValueAtTime(0, t+0.4);
-            o.start(); o.stop(t+0.4);
+            o.type = 'triangle'; o.frequency.setValueAtTime(440, t); o.frequency.setValueAtTime(880, t+0.1); g.gain.linearRampToValueAtTime(0, t+0.4); o.start(); o.stop(t+0.4);
         } else if(type === 'error') {
-            o.type = 'square';
-            o.frequency.setValueAtTime(150, t);
-            g.gain.linearRampToValueAtTime(0, t+0.2);
-            o.start(); o.stop(t+0.2);
+            o.type = 'square'; o.frequency.setValueAtTime(150, t); g.gain.linearRampToValueAtTime(0, t+0.2); o.start(); o.stop(t+0.2);
         }
     }
 };
@@ -344,7 +391,15 @@ const Sound = {
 const Network = {
     peer: null, conn: null, isHost: false, scanner: null,
     
-    // ホスト初期化
+    // メニュー表示
+    openMenu() {
+        document.querySelectorAll('.screen').forEach(e => e.classList.remove('active'));
+        document.getElementById('screen-network').classList.add('active');
+        document.getElementById('net-select-ui').style.display='flex';
+        document.getElementById('net-host-ui').style.display='none';
+        document.getElementById('net-guest-ui').style.display='none';
+    },
+
     initHost() {
         Sound.init();
         document.getElementById('net-select-ui').style.display = 'none';
@@ -354,44 +409,35 @@ const Network = {
         this.peer.on('open', id => {
             document.getElementById('host-id-text').innerText = id;
             this.isHost = true;
-            // QR生成
-            document.getElementById("qr-display-area").innerHTML = "";
-            new QRCode(document.getElementById("qr-display-area"), { text: id, width: 160, height: 160 });
+            document.getElementById("qr-display").innerHTML = "";
+            new QRCode(document.getElementById("qr-display"), { text: id, width: 160, height: 160 });
         });
         
         this.peer.on('connection', c => {
-            this.conn = c;
-            this.setupConnection();
-            Game.startOnline(true); // Host is P1
+            this.conn = c; this.setupConnection(); Game.startOnline(true);
         });
     },
 
-    // ゲストUI表示
     showGuestUI() {
         document.getElementById('net-select-ui').style.display = 'none';
         document.getElementById('net-guest-ui').style.display = 'flex';
     },
 
-    // カメラ起動
     startCamera() {
         Sound.init();
         const wrapper = document.getElementById('camera-wrapper');
         wrapper.style.display = 'block';
         this.scanner = new Html5QrcodeScanner("camera-wrapper", { fps: 10, qrbox: 200 });
         this.scanner.render((decoded) => {
-            this.join(decoded);
-            this.scanner.clear();
-            wrapper.style.display = 'none';
+            this.join(decoded); this.scanner.clear(); wrapper.style.display = 'none';
         });
     },
 
-    // 入力で参加
     joinByInput() {
         const id = document.getElementById('input-host-id').value;
         if(id) this.join(id);
     },
 
-    // 参加処理
     join(id) {
         Sound.init();
         this.peer = new Peer();
@@ -399,58 +445,62 @@ const Network = {
             this.conn = this.peer.connect(id);
             this.isHost = false;
             this.setupConnection();
-            Game.startOnline(false); // Guest is P2
+            Game.startOnline(false);
         });
         this.peer.on('error', () => alert("接続できませんでした"));
     },
 
-    // 接続設定
     setupConnection() {
         this.conn.on('data', data => Game.onData(data));
         this.conn.on('close', () => alert("通信が切断されました"));
     },
 
-    send(data) {
-        if(this.conn) this.conn.send(data);
-    }
+    send(data) { if(this.conn) this.conn.send(data); }
 };
 
 // ゲームロジック
 const Game = {
-    mode: 'local', // 'local' or 'online'
-    role: 'p1',    // 'p1' (Host/Self), 'p2' (Guest)
-    
-    // プレイヤーデータ
+    mode: 'local', role: 'p1',
     p1: { hand:[1,2,3,5,7,9], chips:['+','-','*','/'], select:null },
     p2: { hand:[1,2,3,5,7,9], chips:['+','-','*','/'], select:null },
-    
-    attacker: 'p1', // 攻撃側
-    phase: 'select', // select, reveal, calc
-    calcBuffer: [],
+    attacker: 'p1', phase: 'select', calcBuffer: [],    timer: 20,
+    timerId: null,
 
-    // ゲーム開始 (ローカル)
-    initLocal() {
-        Sound.init();
-        this.mode = 'local';
-        this.role = 'p1';
-        this.start();
+        startTimer(seconds, onTimeout) {
+        this.stopTimer();
+        this.timer = seconds;
+        const el = document.getElementById('game-timer');
+        el.style.display = 'block';
+        el.innerText = this.timer;
+        el.classList.remove('timer-danger');
+
+        this.timerId = setInterval(() => {
+            this.timer--;
+            el.innerText = this.timer;
+            if (this.timer <= 5) el.classList.add('timer-danger');
+            
+            if (this.timer <= 0) {
+                this.stopTimer();
+                onTimeout(); // 時間切れ時の処理を実行
+            }
+        }, 1000);
     },
 
-    // ゲーム開始 (オンライン)
-    startOnline(isHost) {
-        this.mode = 'online';
-        this.role = isHost ? 'p1' : 'p2';
-        this.start();
+    // タイマーを止める関数
+    stopTimer() {
+        if (this.timerId) clearInterval(this.timerId);
+        document.getElementById('game-timer').style.display = 'none';
     },
+
+    initLocal() { Sound.init(); this.mode = 'local'; this.role = 'p1'; this.start(); },
+    startOnline(isHost) { this.mode = 'online'; this.role = isHost ? 'p1' : 'p2'; this.start(); },
 
     start() {
         document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
         document.getElementById('screen-game').classList.add('active');
         
-        // 先攻後攻ランダム
         this.attacker = (Math.random() > 0.5) ? 'p1' : 'p2';
         
-        // オンラインの場合、ホストが先攻情報を送る
         if(this.mode === 'online' && this.role === 'p1') {
             Network.send({ type: 'init', attacker: this.attacker });
         }
@@ -459,33 +509,27 @@ const Game = {
         this.startPhaseSelect();
     },
 
-    // フェーズ1: カード選択
-    startPhaseSelect() {
+   startPhaseSelect() {
         this.phase = 'select';
-        this.p1.select = null;
-        this.p2.select = null;
-        
+        this.p1.select = null; this.p2.select = null;
         document.getElementById('slot-p1').innerHTML = 'あなた';
         document.getElementById('slot-p2').innerHTML = 'あいて';
         document.getElementById('wait-overlay').style.display = 'none';
-
-        if(this.mode === 'local') {
-            this.setGuide("【P1】カードを選んでください");
-        } else {
-            this.setGuide("場に出すカードを選ぼう！");
-        }
+        this.setGuide(this.mode==='local' ? "【P1】カードを選んでください" : "場に出すカードを選ぼう！");
         this.updateBoard();
+
+        // --- 追加：制限時間（選ばなかったら一番左のカードを強制選択） ---
+        this.startTimer(20, () => {
+            const p = (this.mode === 'online') ? this[this.role] : this.p1;
+            if (p.select === null) this.clickCard(this.mode==='online'?this.role:'p1', p.hand[0]);
+        });
     },
 
-    // カードクリック
     clickCard(player, val) {
         if(this.phase !== 'select') return;
-        
-        // 操作権限チェック
         if(this.mode === 'online' && player !== this.role) return;
-        if(this.mode === 'local' && player === 'p2' && this.p1.select === null) return; // ローカルはP1→P2の順
+        if(this.mode === 'local' && player === 'p2' && this.p1.select === null) return;
 
-        // 選択
         this[player].select = val;
         Sound.play('select');
 
@@ -498,17 +542,16 @@ const Game = {
                 setTimeout(() => this.revealCards(), 500);
             }
         } else {
-            // オンライン
             document.getElementById(`slot-${this.role}`).innerHTML = '<div class="card card-back"></div>';
             Network.send({ type: 'select', val: val });
             this.setGuide("相手を待っています...");
             document.getElementById('wait-overlay').style.display = 'flex';
+            document.getElementById('wait-text').innerText = "相手の選択中...";
             this.checkOnlineReady();
         }
         this.updateBoard();
     },
 
-    // オンライン: 両者選択完了チェック
     checkOnlineReady() {
         if(this.p1.select !== null && this.p2.select !== null) {
             document.getElementById('wait-overlay').style.display = 'none';
@@ -516,7 +559,6 @@ const Game = {
         }
     },
 
-    // フェーズ2: 公開
     revealCards() {
         this.phase = 'reveal';
         const v1 = this.p1.select;
@@ -529,9 +571,7 @@ const Game = {
             Sound.play('crash');
             this.setGuide("【クラッシュ！】同じ数字だ！");
             setTimeout(() => {
-                this.discard('p1', v1);
-                this.discard('p2', v2);
-                this.checkWinCondition();
+                this.discard('p1', v1); this.discard('p2', v2); this.checkWinCondition();
             }, 2000);
         } else {
             Sound.play('select');
@@ -540,143 +580,103 @@ const Game = {
         }
     },
 
-    // フェーズ3: 計算
     startPhaseCalc() {
         this.phase = 'calc';
         const isAttacker = (this.mode === 'local') ? true : (this.role === this.attacker);
         const target = (this.attacker === 'p1') ? this.p2.select : this.p1.select;
         const myCard = (this.attacker === 'p1') ? this.p1.select : this.p2.select;
 
-        // 見た目の更新
-        this.updateBoard(); // 攻守バッジ更新
+        this.updateBoard();
 
         if(isAttacker) {
-            this.calcBuffer = [{ type:'num', val:myCard }]; // 自分の出したカードが初期値
+            this.calcBuffer = [{ type:'num', val:myCard }];
             document.getElementById('calc-target').innerText = target;
             document.getElementById('calc-panel').classList.add('show');
             this.setGuide("【攻撃】計算して相手の数字を作れ！");
             this.renderCalcUI();
+            this.startTimer(40, () => this.calcPass());
         } else {
             this.setGuide("【守り】相手の計算を待っています...");
             document.getElementById('wait-overlay').style.display = 'flex';
             document.getElementById('wait-text').innerText = "相手が計算中...";
+            this.stopTimer(); 
         }
     },
 
-    // 計算UI描画
     renderCalcUI() {
         const p = this[this.attacker];
-        
-        // ディスプレイ
         document.getElementById('calc-disp').innerText = this.calcBuffer.map(i => i.val).join(' ');
 
-        // 記号ボタン
         const chipBox = document.getElementById('calc-chips');
         chipBox.innerHTML = '';
         ['+','-','*','/'].forEach(op => {
             const el = document.createElement('div');
-            el.className = 'chip';
-            el.innerText = op;
-            
-            // 所持数と使用数を比較して使用可否判定
+            el.className = 'chip'; el.innerText = op;
             const hasCount = p.chips.filter(c => c===op).length;
             const usedCount = this.calcBuffer.filter(i => i.type==='op' && i.val===op).length;
-            
             if(usedCount >= hasCount) el.classList.add('used');
-            
-            el.onclick = () => {
-                if(!el.classList.contains('used')) {
-                    this.calcBuffer.push({ type:'op', val:op });
-                    Sound.play('select');
-                    this.renderCalcUI();
-                }
-            };
+            el.onclick = () => { if(!el.classList.contains('used')) { this.calcBuffer.push({ type:'op', val:op }); Sound.play('select'); this.renderCalcUI(); } };
             chipBox.appendChild(el);
         });
 
-        // 手札ボタン
         const handBox = document.getElementById('calc-hand');
         handBox.innerHTML = '';
         p.hand.forEach(val => {
             const el = document.createElement('div');
             el.className = 'card';
-            el.style.width = '40px'; el.style.height = '55px'; el.style.fontSize = '1.2rem';
+            el.style.width='40px'; el.style.height='55px'; el.style.fontSize='1.2rem';
             el.innerText = val;
-
-            // 使用判定 (出したカードは最初に使用済み扱い。それ以外の手札はカウント比較)
             const isPlayedCard = (val === p.select);
             const handCount = p.hand.filter(v => v===val).length;
-            // バッファ内の使用数（先頭の出したカードは除く）
             const usedInBuf = this.calcBuffer.slice(1).filter(i => i.type==='num' && i.val===val).length;
-            
-            // 出したカードと同じ数字の手札を使う場合、手札枚数-1 までしか使えない
             const limit = isPlayedCard ? handCount - 1 : handCount;
-            
             if(usedInBuf >= limit) el.classList.add('disabled');
-
-            el.onclick = () => {
-                if(!el.classList.contains('disabled')) {
-                    this.calcBuffer.push({ type:'num', val:val });
-                    Sound.play('select');
-                    this.renderCalcUI();
-                }
-            };
+            el.onclick = () => { if(!el.classList.contains('disabled')) { this.calcBuffer.push({ type:'num', val:val }); Sound.play('select'); this.renderCalcUI(); } };
             handBox.appendChild(el);
         });
     },
 
-    // 計算アクション
     calcClear() {
         const myCard = (this.attacker === 'p1') ? this.p1.select : this.p2.select;
         this.calcBuffer = [{ type:'num', val:myCard }];
-        Sound.play('select');
-        this.renderCalcUI();
+        Sound.play('select'); this.renderCalcUI();
     },
     
     calcPass() {
-        if(!confirm("計算をあきらめますか？（自分のカードは手札に戻ります）")) return;
+        if(!confirm("計算をあきらめますか？（攻撃カードは戻ります）")) return;
         this.finishCalc(false);
     },
 
     calcSubmit() {
         const target = (this.attacker === 'p1') ? this.p2.select : this.p1.select;
         const expr = this.calcBuffer.map(i => i.val).join('');
-        
         try {
-            // 単純なeval代替
+            if(expr.includes('/0')) throw new Error("ZeroDiv");
             const res = Function('"use strict";return (' + expr + ')')();
+            if(!isFinite(res)) throw new Error("Infinity");
             
             if(res === target) {
-                Sound.play('win');
-                this.finishCalc(true);
+                Sound.play('win'); this.finishCalc(true);
             } else {
-                Sound.play('error');
-                alert(`答えが違います！\nあなたの答え: ${res}\n目標の数字: ${target}`);
+                Sound.play('error'); alert(`答えが違います！\nあなたの答え: ${res}\n目標の数字: ${target}`);
             }
         } catch(e) {
-            Sound.play('error');
-            alert("式が完成していません（記号で終わっている等）");
+            Sound.play('error'); alert("計算式が正しくありません");
         }
     },
 
     finishCalc(success) {
         document.getElementById('calc-panel').classList.remove('show');
-        if(this.mode === 'online') {
-            Network.send({ type: 'result', success: success, buffer: this.calcBuffer });
-        }
+        if(this.mode === 'online') Network.send({ type: 'result', success: success, buffer: this.calcBuffer });
         this.resolveRound(success);
     },
 
-    // 判定処理
     resolveRound(success) {
+        this.stopTimer();
         document.getElementById('wait-overlay').style.display = 'none';
-
         if(success) {
             this.setGuide("計算成功！ 両方のカードが消滅！");
-            
-            // コスト支払い (バッファにあるカード/チップを消費)
             const atkPlayer = this[this.attacker];
-            // バッファの1つ目は場に出したカードなのでスキップ
             for(let i=1; i<this.calcBuffer.length; i++) {
                 const item = this.calcBuffer[i];
                 if(item.type === 'num') {
@@ -687,19 +687,14 @@ const Game = {
                     if(idx !== -1) atkPlayer.chips.splice(idx, 1);
                 }
             }
-            
-            // 場に出たカードを捨てる
             this.discard(this.attacker, this[this.attacker].select);
             const def = (this.attacker === 'p1') ? 'p2' : 'p1';
             this.discard(def, this[def].select);
-
         } else {
             this.setGuide("失敗... 守備側のカードだけ消滅");
-            // 守備側のカードだけ捨てる
             const def = (this.attacker === 'p1') ? 'p2' : 'p1';
             this.discard(def, this[def].select);
         }
-
         setTimeout(() => this.checkWinCondition(), 2500);
     },
 
@@ -709,19 +704,14 @@ const Game = {
         if(idx !== -1) arr.splice(idx, 1);
     },
 
-    // 勝敗判定
     checkWinCondition() {
         const p1Empty = (this.p1.hand.length === 0);
         const p2Empty = (this.p2.hand.length === 0);
         
-        if(p1Empty && p2Empty) {
-            this.showResult("引き分け！");
-        } else if(p1Empty) {
-            this.showResult(this.mode==='local' ? "あなた(P1)の勝ち！" : (this.role==='p1'?"あなたの勝ち！":"あいての勝ち！"));
-        } else if(p2Empty) {
-            this.showResult(this.mode==='local' ? "あいて(P2)の勝ち！" : (this.role==='p2'?"あなたの勝ち！":"あいての勝ち！"));
-        } else {
-            // 次へ
+        if(p1Empty && p2Empty) this.showResult("引き分け！");
+        else if(p1Empty) this.showResult(this.mode==='local' ? "あなた(P1)の勝ち！" : (this.role==='p1'?"あなたの勝ち！":"あいての勝ち！"));
+        else if(p2Empty) this.showResult(this.mode==='local' ? "あいて(P2)の勝ち！" : (this.role==='p2'?"あなたの勝ち！":"あいての勝ち！"));
+        else {
             this.attacker = (this.attacker === 'p1') ? 'p2' : 'p1';
             this.startPhaseSelect();
         }
@@ -732,18 +722,12 @@ const Game = {
         document.getElementById('result-title').innerText = msg;
     },
 
-    // 画面全体更新
     updateBoard() {
-        this.renderHand('p1');
-        this.renderHand('p2');
-        
-        // 攻守バッジ表示
+        this.renderHand('p1'); this.renderHand('p2');
         const atkBadge = (this.attacker === 'p1') ? document.getElementById('badge-p1') : document.getElementById('badge-p2');
         const defBadge = (this.attacker === 'p1') ? document.getElementById('badge-p2') : document.getElementById('badge-p1');
-        
         atkBadge.className = 'role-badge badge-atk'; atkBadge.innerText = '攻撃';
         defBadge.className = 'role-badge badge-def'; defBadge.innerText = '守り';
-        
         document.getElementById('zone-p1').className = (this.attacker==='p1') ? 'player-zone turn-atk' : 'player-zone turn-def';
         document.getElementById('zone-p2').className = (this.attacker==='p2') ? 'player-zone turn-atk' : 'player-zone turn-def';
     },
@@ -752,23 +736,17 @@ const Game = {
         const container = document.getElementById('hand-'+player);
         container.innerHTML = '';
         const p = this[player];
-        
-        // オンラインで相手の手札なら裏向きにする
         const isSecret = (this.mode === 'online' && player !== this.role);
 
         p.hand.forEach(val => {
             const el = document.createElement('div');
             el.className = 'card';
-            
-            if(isSecret) {
-                el.classList.add('card-back');
-            } else {
+            if(isSecret) el.classList.add('card-back');
+            else {
                 el.innerText = val;
-                // 選択時の挙動
                 if(this.phase === 'select') {
                     if(p.select === val) el.classList.add('selected');
                     else if(p.select !== null) el.classList.add('disabled');
-                    
                     el.onclick = () => this.clickCard(player, val);
                 }
             }
@@ -778,23 +756,16 @@ const Game = {
 
     setGuide(txt) { document.getElementById('guide-text').innerText = txt; },
 
-    // データ受信
     onData(d) {
-        if(d.type === 'init') {
-            this.attacker = d.attacker;
-            this.startPhaseSelect();
-        } 
+        if(d.type === 'init') { this.attacker = d.attacker; this.startPhaseSelect(); } 
         else if(d.type === 'select') {
-            // 相手(p2)が選択した
-            // (roleがp1なら相手はp2、roleがp2なら相手はp1)
             const opp = (this.role === 'p1') ? 'p2' : 'p1';
             this[opp].select = d.val;
-            
             document.getElementById('slot-'+opp).innerHTML = '<div class="card card-back"></div>';
             this.checkOnlineReady();
         } 
         else if(d.type === 'result') {
-            this.calcBuffer = d.buffer; // 相手の計算式をコピー（演出用）
+            this.calcBuffer = d.buffer; 
             this.resolveRound(d.success);
         }
     }
