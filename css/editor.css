@@ -1,0 +1,419 @@
+@charset "UTF-8";
+
+/* =========================================
+   Editor Panels (エディタ詳細)
+   ========================================= */
+
+/* --- Outliner --- */
+.outliner-item {
+    padding: 0.375rem 0.5rem; 
+    border-radius: 0.25rem; cursor: pointer; 
+    display: flex; align-items: center; justify-content: space-between; 
+    font-size: 0.85rem; margin-bottom: 2px;
+}
+.outliner-item:hover { background: #333; }
+.outliner-item.selected { background: var(--accent-color); color: white; }
+.item-name { 
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    flex: 1; margin-right: 0.5rem;
+}
+.item-vis-btn { padding: 0 0.25rem; color: #aaa; }
+.item-vis-btn:hover { color: #fff; }
+
+/* --- Inspector Properties --- */
+.prop-section { 
+    margin-bottom: 1rem; 
+    border-bottom: 1px solid #333; 
+    padding-bottom: 0.625rem; 
+}
+.prop-section:last-child { border-bottom: none; margin-bottom: 0; }
+
+.prop-title { 
+    font-size: 0.8rem; color: var(--text-muted); 
+    margin-bottom: 0.5rem; font-weight: bold; 
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+.prop-row { 
+    display: flex; align-items: center; 
+    margin-bottom: 0.5rem; gap: 1.1rem; flex-wrap: wrap; 
+}
+.prop-row label { 
+    width: 4.5rem; /* 72px */
+    font-size: 0.85rem; color: #ccc; 
+    flex-shrink: 0; white-space: nowrap;
+}
+.prop-row input[type="text"], 
+.prop-row input[type="number"], 
+.prop-row select { 
+    flex: 1; min-width: 5rem;
+}
+
+.sub-header {
+    font-size: 0.75rem; font-weight: bold;
+    color: var(--success-color);
+    background: rgba(76, 175, 80, 0.1);
+    padding: 0.25rem 0.5rem;
+    margin-top: 0.75rem; margin-bottom: 0.375rem;
+    border-left: 3px solid var(--success-color);
+    border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.help-text, .param-help { 
+    font-size: 0.7rem; color: #777; margin-top: 0.125rem; text-align: right; 
+}
+
+/* Vector3 Inputs (XYZ) */
+.vec3-row { 
+    display: flex; gap: 0.25rem; margin-bottom: 0.5rem; width: 100%;
+}
+.vec3-input { 
+    flex: 1; position: relative; min-width: 0; 
+}
+.vec3-input input { 
+    width: 100%; padding-left: 1rem; padding-right: 0.1rem; font-size: 0.85rem; 
+}
+.vec3-input span { 
+    position: absolute; left: 0.25rem; top: 50%; transform: translateY(-50%); 
+    font-size: 0.65rem; font-weight: bold; pointer-events: none; opacity: 0.7;
+}
+.label-x { color: #ff5555; } 
+.label-y { color: #55ff55; } 
+.label-z { color: #5555ff; }
+
+/* Dynamic Params (Logic) */
+.param-group {
+    margin-bottom: 0.375rem; background: #2a2a2a; 
+    padding: 0.375rem; border-radius: 0.25rem; border: 1px solid #333;
+}
+.param-label { 
+    display: block; font-size: 0.75rem; color: #aaa; margin-bottom: 0.2rem; 
+}
+.param-input, .param-select { width: 100%; font-size: 0.85rem; }
+.param-checkbox-row { 
+    display: flex; align-items: center; justify-content: space-between;
+}
+
+/* --- Timeline Panel (Bottom Panel) --- */
+#timeline-panel {
+    position: absolute; bottom: var(--current-footer-height); left: 0; right: 0;
+    height: var(--timeline-height); background: #222;
+    border-top: 2px solid var(--accent-color); z-index: var(--z-timeline);
+    display: flex; flex-direction: column;
+    transition: transform 0.3s ease; transform: translateY(120%);
+}
+#timeline-panel.visible { transform: translateY(0); }
+
+/* ライブヒント領域 */
+#live-hint-area {
+    z-index: var(--z-panel-float);
+}
+
+#timeline-resizer {
+    height: 6px; background: var(--accent-color); cursor: ns-resize;
+    flex-shrink: 0; margin-top: -3px; z-index: 100;
+}
+#timeline-resizer:hover { background: var(--accent-hover); }
+
+.timeline-header {
+    height: 2.5rem; /* 40px */
+    background: #2d2d2d; border-bottom: 1px solid #444;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 0.625rem; gap: 1rem;
+    overflow-x: auto; white-space: nowrap; flex-shrink: 0;
+}
+
+.timeline-controls, .timeline-settings { display: flex; align-items: center; gap: 0.3rem; }
+.time-display input { 
+    width: 3rem; background: #111; border: 1px solid #444; 
+    color: var(--accent-color); text-align: center; border-radius: 2px;
+}
+
+.record-btn { color: #ff4444 !important; border: 1px solid #ff4444 !important; }
+.record-btn:hover { background: rgba(255,68,68,0.2) !important; }
+/* ▼ ここから下が新しい「左右分割」構造 ▼ */
+.timeline-tracks-container {
+    flex: 1; display: flex; overflow: hidden; background: #1e1e1e; position: relative;
+}
+
+/* 左カラム: パーツ名ラベル (横幅固定、上下スクロールはJSで同期) */
+#timeline-labels-container {
+    width: 150px; min-width: 150px; flex-shrink: 0;
+    background: #2d2d2d; border-right: 1px solid #444;
+    overflow-y: hidden; overflow-x: hidden; z-index: 10;
+}
+.track-label-row {
+    height: 2rem; border-bottom: 1px solid #333;
+    color: #ccc; font-size: 0.75rem; padding-left: 0.5rem;
+    line-height: 2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.track-label-row:hover { background: #3d3d3d; color: #fff; }
+
+/* 右カラム: タイムライン本体 (上下左右にスクロール) */
+#timeline-tracks-scroll {
+    flex: 1; overflow: auto; position: relative;
+}
+
+/* 方眼紙となる巨大シート (幅はJSで制御) */
+#timeline-grid-sheet {
+    position: relative; min-height: 100%;
+    /* 10px刻みの縦線を引く（開始位置は常に0） */
+    background-image: linear-gradient(90deg, #333 1px, transparent 1px);
+    background-size: 10px 100%;
+}
+
+/* 目盛り(ルーラー) */
+#timeline-ruler {
+    height: 1.5rem; background: rgba(37, 37, 38, 0.8); border-bottom: 1px solid #555;
+    position: sticky; top: 0; z-index: 5;
+}
+
+/* トラック(行) */
+.timeline-track-row {
+    height: 2rem; border-bottom: 1px solid rgba(255,255,255,0.05); position: relative;
+}
+
+/* 赤い線 (プレイヘッド) */
+#timeline-playhead {
+    position: absolute; top: 0; bottom: 0; width: 2px; background: #ff4444;
+    z-index: 20; pointer-events: none; left: 0; box-shadow: 0 0 5px rgba(255,0,0,0.5);
+    transition: none; /* ドラッグ時の遅延を防ぐ */
+}
+
+/* キーフレームマーカー */
+.keyframe-marker {
+    position: absolute; top: 0.5rem; width: 0.8rem; height: 0.8rem;
+    background: #ddd; transform: rotate(45deg); cursor: pointer; z-index: 2; border: 1px solid #555;
+    margin-left: -0.4rem; /* 線の中央に合わせる */
+}
+.keyframe-marker:hover { background: #fff; transform: scale(1.2) rotate(45deg); z-index: 3; }
+.keyframe-marker.dragging { background: #ffeb3b; z-index: 30; transform: scale(1.3) rotate(45deg); }
+
+
+.timeline-select {
+    background: #111; color: #e0e0e0; border: 1px solid #444;
+    border-radius: 4px; padding: 2px 4px; font-size: 0.8rem; font-weight: bold;
+}
+
+/* --- Logic Editor Layout --- */
+.logic-container {
+    display: grid;
+    /* 幅300px以上のカラムを敷き詰める (レスポンシブ対応) */
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); 
+    gap: 0.75rem;
+    padding: 0.5rem;
+    color: #e0e0e0;
+}
+
+.logic-column {
+    background: #2a2a2a;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid #3e3e3e;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.logic-title {
+    color: var(--purple-color);
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+/* パターンリストのスクロールエリア */
+.logic-list-area {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid #444;
+    border-radius: 0.25rem;
+    padding: 0.3rem;
+    max-height: 150px; /* 高さを制限してスクロールさせる */
+    overflow-y: auto;
+    flex: 1; /* 余った高さを埋める */
+}
+
+.logic-pattern-row {
+    display: flex;
+    gap: 0.3rem;
+    margin-bottom: 0.3rem;
+    background: #333;
+    padding: 0.3rem;
+    border-radius: 0.25rem;
+    align-items: center;
+    border-left: 3px solid var(--warning-color);
+    font-size: 0.8rem;
+}
+
+/* --- ★追加: UIエディタ用 下部パネルレイアウト --- */
+#ui-bottom-palette button {
+    width: 100%;
+    text-align: left;
+    margin-bottom: 5px;
+    padding: 6px;
+    background: #333;
+    color: #eee;
+    border: 1px solid #444;
+}
+#ui-bottom-palette button:hover {
+    background: #444;
+    color: #fff;
+}
+
+/* オブジェクト一覧リスト (下部用) */
+#ui-bottom-list .outliner-item {
+    padding: 4px 8px;
+    border-bottom: 1px solid #333;
+    background: transparent;
+}
+#ui-bottom-list .outliner-item:hover {
+    background: #2a2a2a;
+}
+#ui-bottom-list .outliner-item.selected {
+    background: var(--accent-color);
+    color: white;
+}
+
+/* プロパティ (下部用: 横並びスタイル) */
+#ui-bottom-inspector-content {
+    align-items: flex-start;
+}
+
+#ui-bottom-inspector-content .prop-section {
+    border: 1px solid #444;
+    background: #2a2a2a;
+    padding: 8px;
+    border-radius: 4px;
+    width: 280px; 
+    flex-shrink: 0;
+    margin-bottom: 0; /* 横並びなので下マージン不要 */
+}
+
+#ui-bottom-inspector-content .prop-title {
+    font-size: 0.75rem;
+    background: #333;
+    padding: 3px 6px;
+    margin: -8px -8px 8px -8px;
+    border-radius: 4px 4px 0 0;
+    border-bottom: 1px solid #444;
+}
+
+#ui-bottom-inspector-content .prop-row {
+    margin-bottom: 4px;
+}
+
+#ui-bottom-inspector-content label {
+    font-size: 0.75rem;
+    width: 70px;
+    color: #ccc;
+}
+
+#ui-bottom-inspector-content input,
+#ui-bottom-inspector-content select {
+    font-size: 0.8rem;
+    padding: 2px 4px;
+    height: 24px;
+}
+
+/* =========================================
+   UIモード専用のパネル調整
+   ========================================= */
+
+/* UIモード時は、下部パネルを作業画面より手前に表示する */
+body[data-mode="ui"] #timeline-panel {
+    z-index: var(--z-game-ui) !important; 
+    bottom: 0 !important;   /* フッターが消えるので画面下ピッタリに配置 */
+    border-top: 1px solid #444;
+}
+
+/* UIモード時はパネルを強制的に表示状態にする見た目調整 */
+body[data-mode="ui"] #timeline-panel.visible {
+    transform: translateY(0) !important;
+}
+/* UIエディタ領域 (HTMLのinline styleから移行) */
+#ui-editor-area {
+    display: none;
+    width: 100%;
+    height: 100%;
+    background: #333;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-main);
+}
+
+/* 音響エディタ領域 (HTMLのinline styleから移行) */
+#sound-editor-area {
+    display: none;
+    width: 100%;
+    height: 100%;
+    background: #222;
+    flex-direction: column;
+    padding: 1.25rem;
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-main);
+}
+ */
+
+/* UIモード専用のレイアウト強制 */
+body[data-mode="ui"] #ui-editor-bottom-view {
+    display: grid !important;
+    grid-template-columns: 200px 250px 1fr; /* パレット | リスト | インスペクタ */
+    gap: 10px;
+    height: 100%;
+    width: 100%;
+    padding: 10px;
+    background: #252526;
+    box-sizing: border-box;
+}
+
+/* UIモード時、アニメーション用の要素を消去 */
+body[data-mode="ui"] #timeline-labels-container,
+body[data-mode="ui"] #timeline-grid-sheet,
+body[data-mode="ui"] #timeline-resizer,
+body[data-mode="ui"] .timeline-header {
+    display: none !important;
+}
+/* --- モード別コンテナ (部屋) --- */
+.bottom-view-container {
+    flex: 1;
+    display: none;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    height: 100%;
+
+}
+/* アクティブになった部屋だけを表示する */
+.bottom-view-container.active { display: flex; }
+
+/* 1. アニメーション用レイアウト */
+#anim-editor-view { flex-direction: column; }
+
+/* 2. UIエディタ用レイアウト (3カラム) */
+#ui-editor-view.active {
+    display: grid !important;
+    grid-template-columns: 200px 250px 1fr;
+    gap: 10px;
+    height: 100%;
+    width: 100%;
+    padding: 10px;
+    background: #252526;
+    box-sizing: border-box;
+}
+
+/* UIエディタ内の各エリア */
+#ui-bottom-palette, 
+#ui-bottom-list-content, 
+#ui-bottom-inspector-content {
+    overflow-y: auto;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 10px;
+    height: 100%;
+}

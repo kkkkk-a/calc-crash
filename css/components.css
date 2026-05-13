@@ -1,0 +1,181 @@
+@charset "UTF-8";
+
+/* =========================================
+   UI Components (部品)
+   ========================================= */
+
+/* --- Buttons --- */
+button { 
+    border: none; outline: none; cursor: pointer; 
+    background: transparent; color: var(--text-main); 
+    transition: 0.2s; 
+    font-family: inherit;
+}
+button:active { transform: scale(0.95); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.icon-btn {
+    width: 2.25rem; height: 2.25rem; /* 36px */
+    border-radius: 0.25rem; background: #383838;
+    display: flex; justify-content: center; align-items: center; 
+    font-size: 1.2rem;
+}
+.icon-btn:hover { background: #484848; }
+
+.text-btn {
+    padding: 0 0.75rem; height: 2rem; /* 32px */
+    border-radius: 0.25rem; background: #383838;
+    font-size: 0.85rem; 
+    display: flex; align-items: center; gap: 0.3rem; 
+    white-space: nowrap;
+}
+.text-btn:hover { background: #484848; }
+
+.play-btn {
+    background: #2b2b2b; 
+    border: 1px solid var(--success-color); color: var(--success-color);
+    padding: 0 1.25rem; height: 2rem; 
+    border-radius: 1rem; font-weight: bold;
+    display: flex; align-items: center; gap: 0.4rem;
+}
+.play-btn:hover { background: rgba(76, 175, 80, 0.1); }
+.play-btn.playing { background: var(--success-color); color: white; }
+
+.btn-secondary { 
+    width: 100%; padding: 0.4rem; background: #333; 
+    font-size: 0.8rem; border-radius: 0.2rem; margin-top: 0.3rem;
+    color: #ccc;
+}
+.btn-secondary:hover { background: #444; color: #fff; }
+
+.btn-action { 
+    width: 100%; padding: 0.6rem; font-weight: bold; 
+    border-radius: 0.25rem; margin-top: 0.3rem; color: white; font-size: 0.85rem;
+}
+.btn-copy { background: var(--accent-color); }
+.btn-copy:hover { background: var(--accent-hover); }
+.btn-delete { background: var(--danger-color); }
+.btn-delete:hover { background: #b71c1c; }
+
+/* --- Form Elements --- */
+input, select, textarea {
+    background-color: var(--input-bg); 
+    border: 1px solid var(--input-border);
+    color: var(--text-main); 
+    border-radius: 0.2rem; 
+    padding: 0.25rem 0.4rem; 
+    font-size: 0.9rem; 
+    outline: none;
+    font-family: inherit;
+    min-width: 0; /* Flexbox内での縮小対応 */
+padding: 0.5rem; /* パディングを大きくしてタップしやすく */
+    height: 2.2rem;   /* 高さを確保 */
+}
+input[type="range"] {
+    accent-color: var(--accent-color);
+    height: 0.5rem;
+    cursor: pointer; padding: 0;
+}
+input:focus, select:focus, textarea:focus { 
+    border-color: var(--accent-color); 
+}
+
+/* Color Input Adjustment */
+input[type="color"] {
+    cursor: pointer; padding: 0; 
+    border: none; background: none; 
+    height: 1.5rem;
+}
+
+/* Toggle Switch Label */
+.toggle-switch-label {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
+    margin-right: 0.75rem;
+}
+.toggle-switch-label:hover { color: #fff; }
+
+/* Select Box Wrapper */
+.mode-selector-wrapper select {
+    background-color: #383838; border: 1px solid #555; 
+    padding: 0.25rem 0.5rem; font-weight: bold;
+    height: 2.25rem; cursor: pointer;
+}
+
+/* Divider */
+.divider { 
+    width: 1px; height: 1.25rem; 
+    background: var(--border-color); 
+    margin: 0 0.25rem; 
+}
+
+/* --- Toolbar Buttons --- */
+.tool-group { display: flex; gap: 0.375rem; flex-shrink: 0; }
+.tool-divider { width: 1px; height: 2.5rem; background: #444; flex-shrink: 0; }
+
+.tool-btn {
+    width: 3.5rem; height: 3.5rem; /* 56px */
+    background: #333; 
+    border: 2px solid #444; border-radius: 0.5rem;
+    display: flex; flex-direction: column; 
+    justify-content: center; align-items: center; 
+    color: #bbb; font-size: 0.8rem;
+}
+.tool-btn:hover { background: #3a3a3a; color: white; }
+.tool-btn.active { background: #2a3a2a; border-color: var(--success-color); color: var(--success-color); }
+.toggle-btn.active { background: #2a3a4a; border-color: var(--accent-color); color: var(--accent-color); }
+
+.tool-icon { font-size: 1.3rem; margin-bottom: 0.1rem; }
+.tool-label { font-size: 0.6rem; text-transform: uppercase; }
+
+/* Toolbar Inputs (Strict Transform) */
+.tf-input {
+    width: 3.75rem; /* 60px */
+    height: 1.125rem;
+    background: #222; border: 1px solid #444; color: #fff;
+    font-size: 0.75rem; padding-left: 0.25rem; border-radius: 2px;
+}
+.tf-axis-label {
+    font-size: 0.7rem; font-weight: bold; width: 0.625rem; text-align: center;
+}
+.x-axis { color: #ff5555; }
+.y-axis { color: #55ff55; }
+.z-axis { color: #5555ff; }
+
+/* Color Picker in Toolbar */
+.tool-btn-wrapper {
+    width: 3.5rem; height: 3.5rem;
+    display: flex; justify-content: center; align-items: center;
+    background: #333; border: 2px solid #444; border-radius: 0.5rem;
+}
+.tool-btn-wrapper:hover { background: #3a3a3a; }
+#tool-color-picker { width: 2.5rem; height: 2.5rem; cursor: pointer; }
+
+/* Add Object Buttons */
+.tool-scroll-area { display: flex; gap: 0.375rem; flex: 1; min-width: 0; }
+.add-btn {
+    width: 3.25rem; height: 3.25rem; /* 52px */
+    background: #252526; 
+    border: 1px solid #3e3e3e; border-radius: 0.375rem;
+    display: flex; flex-direction: column; 
+    justify-content: center; align-items: center;
+    color: #ccc; flex-shrink: 0; font-size: 0.75rem;
+}
+.add-btn:hover { background: #333; border-color: #666; color: white; transform: translateY(-2px); }
+.shape-icon { font-size: 1.2rem; margin-bottom: 0.1rem; }
+
+/* --- components.css の末尾あたりに追加 --- */
+
+kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #fff;
+    background-color: #333;
+    border: 1px solid #555;
+    border-bottom: 2px solid #111;
+    border-radius: 4px;
+    margin: 0 2px;
+}

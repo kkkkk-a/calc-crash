@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3Dクリエイト</title>
+    <link rel="icon" href="favicon.ico">
+    <!-- CSS読み込み -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Import Map: Three.js & Physics Engines -->
+    <script type="importmap" defer>
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "three-bvh-csg": "https://esm.sh/three-bvh-csg@0.0.16?external=three",
+            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <div class="loader-text">Loading...</div>
+        </div>
+    </div>
+
+    <header>
+        <div class="header-left">
+            <button class="icon-btn" id="btn-outliner-toggle" title="オブジェクト一覧を開閉">≣</button>
+
+            <!-- モード切替は常に表示 -->
+            <div class="mode-selector-wrapper" style="margin-left: 10px;" title="作業モードの切り替え">
+                <select id="mode-select">
+                    <option value="stage">🏞️ ステージ作り</option>
+                    <option value="character">🤖 キャラ・AI作り</option>
+                    <option value="ui">🎨 画面・UI作り</option>
+                    <option value="sound">🎵 音響・BGM管理</option>
+                </select>
+            </div>
+
+            <div class="divider"></div>
+            <button class="icon-btn" id="btn-undo" title="元に戻す (Ctrl+Z)">↶</button>
+            <button class="icon-btn" id="btn-redo" title="やり直す (Ctrl+Y)">↷</button>
+            <div class="divider"></div>
+
+            <!-- ★ステージモードの時だけ表示される管理パネル -->
+            <div class="mode-selector-wrapper stage-only" style="align-items:center; gap:5px;" title="編集するステージの切り替え">
+                <span style="font-size:0.8rem; color:#aaa;">🗺️</span>
+                <select id="stage-select"
+                    style="background:#222; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:4px; max-width:120px;">
+                    <option value="Stage_1">Stage_1</option>
+                </select>
+                <button id="btn-add-stage" class="stage-btn" style="background:#4caf50;" title="新規追加">+</button>
+                <button id="btn-duplicate-stage" class="stage-btn" style="background:#2196f3;"
+                    title="現在のステージを複製">❐</button>
+                <button id="btn-rename-stage" class="stage-btn" style="background:#ff9800;" title="ステージ名を変更">✏️</button>
+                <button id="btn-delete-stage" class="stage-btn" style="background:#f44336;" title="削除">-</button>
+                <button id="btn-set-start-stage" class="stage-btn" style="background:#9c27b0; margin-left:5px;"
+                    title="ゲーム開始時にこのステージから始める">🏁 Start設定</button>
+            </div>
+
+            <!-- ★キャラモード・UIモードの時だけ表示されるタイトル -->
+            <div class="char-only" style="color:#ff5555; font-weight:bold; font-size:0.9rem; padding:0 10px;">🤖
+                キャラクターモデリング</div>
+            <div class="ui-only" style="color:#00d2ff; font-weight:bold; font-size:0.9rem; padding:0 10px;">🎨 画面レイアウト編集
+            </div>
+            <div class="sound-only" style="color:#ffeb3b; font-weight:bold; font-size:0.9rem; padding:0 10px;">🎵
+                オーディオライブラリ</div>
+        </div>
+
+        <div class="header-center">
+            <!-- ★ステージモードの時だけ表示されるテストプレイ群 -->
+            <label class="toggle-switch-label stage-only" title="チェックを入れるとプレイヤーを操作できます">
+                <input type="checkbox" id="chk-enable-player" checked>
+                <span class="toggle-text">🎮 プレイヤー操作</span>
+            </label>
+            <div class="divider stage-only"></div>
+            <button class="play-btn stage-only" id="btn-play" title="ゲームをテストプレイ">
+                <span class="play-icon">▶</span> <span class="play-text">テストプレイ</span>
+            </button>
+        </div>
+
+        <div class="header-right">
+            <!-- 共通で使える機能 -->
+            <button class="text-btn" id="btn-import-menu" title="3Dモデルや画像を読み込む">📥 素材読込</button>
+            <input type="file" id="file-glb" accept=".json,.glb,.gltf" class="hidden-file">
+            <input type="file" id="file-sprite" accept=".json" class="hidden-file">
+
+            <div class="divider"></div>
+
+            <button class="text-btn" id="btn-save" title="プロジェクト全体を保存する (.json)">💾 全保存</button>
+
+            <!-- ★追加・修正: モード別の単体エクスポートボタン -->
+            <button class="text-btn stage-only" id="btn-export-stage" title="現在のステージだけを素材として保存する">💾 ステージ単体保存</button>
+            <button class="text-btn char-only" id="btn-export-char" title="現在選択中のキャラだけを素材として保存する">💾 キャラ単体保存</button>
+            <button class="text-btn ui-only" id="btn-export-ui" title="現在のUI設定だけを素材として保存する">💾 UI単体保存</button>
+
+            <button class="text-btn stage-only" id="btn-open" title="プロジェクト(または素材)を読み込む">📂 開く</button>
+
+            <!-- ステージモードの時だけ表示される機能 -->
+            <button class="text-btn" id="btn-clear-data" title="現在の画面のデータを初期化・クリアする">🗑️ データクリア</button>
+            <button class="text-btn stage-only" id="btn-export-multi" style="color:#4caf50; border-color:#4caf50;"
+                title="全ステージを繋いだゲームを出力する">📤 ゲーム書き出し</button>
+
+            <div class="divider stage-only"></div>
+            <button class="icon-btn stage-only" id="btn-world" title="ワールド設定 (空の色や重力)">🌍</button>
+
+            <!-- 共通 -->
+            <button class="icon-btn" id="btn-help" title="使い方マニュアル">❓</button>
+        </div>
+    </header>
+    <!-- Main Content Area -->
+    <div id="main-container">
+        <!-- Outliner Panel (Left) -->
+        <aside id="outliner-panel">
+            <div class="panel-header">
+                <span>Objects</span>
+                <button class="panel-close" id="close-outliner">×</button>
+            </div>
+            <div id="outliner-content" class="scrollable-content">
+                <!-- Content injected by JS -->
+            </div>
+        </aside>
+
+        <!-- Viewport (Center) -->
+        <main id="viewport">
+            <div id="notification-area"></div>
+            <div id="live-hint-area"
+                style="position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.7); color:#ccc; padding:10px; border-radius:8px; border-left:3px solid #00d2ff; font-size:0.8rem; pointer-events:none; z-index:40; display:none;">
+                <div style="font-weight:bold; color:#00d2ff; margin-bottom:5px;">💡 Hint</div>
+                <div id="live-hint-text">オブジェクトを選択してください</div>
+            </div>
+            <!-- UIエディタ用の作業領域 -->
+            <div id="ui-editor-area">
+                <div id="ui-editor-screen"
+                    style="width:800px; height:450px; background:#000; position:relative; overflow:hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+                    <!-- ここにボタンとかを追加していく -->
+                </div>
+            </div>
+            <!-- ★追加: 音響管理用の作業領域 -->
+            <div id="sound-editor-area">
+                
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #555; padding-bottom:10px; margin-bottom:20px;">
+                    <h2 style="margin:0; color:#ffeb3b;">🎵 Audio Library</h2>
+                    <div>
+                        <input type="file" id="file-audio" accept="audio/mpeg, audio/wav, audio/ogg" class="hidden-file" multiple>
+                        <button class="btn-action" id="btn-import-audio" style="background:#4caf50;">➕ 音声ファイルを追加 (MP3/WAV/OGG)</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:20px; flex:1; overflow:hidden;">
+                    <!-- リスト領域 -->
+                    <div style="flex:2; background:#1e1e1e; border:1px solid #444; border-radius:8px; display:flex; flex-direction:column;">
+                        <div style="padding:10px; background:#333; border-bottom:1px solid #444; font-weight:bold; color:#ccc;">登録済みのサウンド</div>
+                        <div id="audio-list-content" style="flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:5px;">
+                            <!-- ここにリストが並ぶ -->
+                        </div>
+                    </div>
+
+                    <!-- 試聴・設定領域 -->
+                    <div style="flex:1; background:#1e1e1e; border:1px solid #444; border-radius:8px; padding:15px; display:flex; flex-direction:column; gap:15px;">
+                        <h3 style="margin:0; color:#00d2ff; border-bottom:1px dashed #555; padding-bottom:5px;">詳細設定</h3>
+                        <div id="audio-inspector-content" style="color:#aaa; font-size:0.9rem;">
+                            左のリストから音声を選択してください。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Inspector Panel (Right) -->
+        <aside id="inspector-panel">
+            <div class="panel-header">
+                <span>Properties</span>
+                <button class="panel-close" id="close-inspector">×</button>
+            </div>
+            <div class="scrollable-content">
+
+                <!-- Basic Info -->
+                <div class="prop-section">
+                    <div class="prop-title">基本情報 (Basic)</div>
+                    <div class="prop-row"><label>形状タイプ</label><input type="text" id="info-type" disabled value="Cube">
+                    </div>
+                    <div class="prop-row"><label>UUID</label><input type="text" id="info-uuid" disabled value="..."
+                            style="font-size:0.7rem;"></div>
+                    <div class="prop-row"><label>表示 (Visible)</label><input type="checkbox" id="inp-visible"></div>
+                </div>
+
+                <!-- Game Logic -->
+                <div class="prop-section" style="border-left: 3px solid #4caf50; padding-left: 8px;">
+                    <div class="prop-title" style="color:#4caf50;">ゲームロジック (Role)</div>
+                    <div class="prop-row">
+                        <label>役割</label>
+                        <select id="game-role" style="width:100%;">
+                            <option value="none">指定なし (None)</option>
+                            <optgroup label="システム">
+                                <option value="start">🏁 スタート地点</option>
+                                <option value="goal">🚩 ゴールエリア</option>
+                                <option value="goal_flag">🏳️ ゴールフラグ(収集品)</option>
+                                <option value="save">💾 セーブ地点</option>
+                            </optgroup>
+                            <optgroup label="ギミック">
+                                <option value="talkable">🗣️ 会話/NPC</option>
+                                <option value="receiver">📡 受信機 (動く壁/ドア)</option>
+                                <option value="enemy_spawn">👿 敵出現ポイント</option>
+                                <option value="item_pickup">💎 アイテム (拾得)</option>
+                                <option value="chest">📦 宝箱</option>
+                                <option value="jump_pad">⏫ ジャンプ台</option>
+                                <option value="switch">🔘 スイッチ</option>
+                                <option value="text">💬 テキスト/看板</option>
+                                <option value="damage">☠️ ダメージ床/罠</option>
+                                <option value="event_trigger">💡 イベント発火(チュートリアル等)</option>
+                                <option value="random_spawner">🎲 ランダム配置スポナー</option>
+                            </optgroup>
+                            <optgroup label="エリア効果">
+                                <option value="stage_portal">🌀 ステージ遷移 (別の世界へ)</option>
+                                <option value="warp">🚪 ワープ入口</option>
+                                <option value="warp_exit">🚪 ワープ出口</option>
+                                <option value="portal">🌀 ポータル (双方向)</option>
+                                <option value="heal">💖 回復エリア</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div id="dynamic-params-container" style="margin-top:10px;"></div>
+                    <div class="help-text" id="role-desc"
+                        style="margin-top:10px; border-top:1px dashed #555; padding-top:5px;">役割の設定</div>
+                </div>
+
+                <!-- Physics -->
+                <div class="prop-section">
+                    <div class="prop-title">物理挙動 (Physics)</div>
+                    <div class="prop-row">
+                        <label>挙動タイプ</label>
+                        <select id="phy-type" style="width:100%;">
+                            <option value="static">⏹️ Static (不動・壁/床)</option>
+                            <option value="dynamic">⚽ Dynamic (物理・落下)</option>
+                            <option value="kinematic">🏗️ Kinematic (制御・動く床)</option>
+                            <option value="ghost">👻 Ghost (すり抜け・領域)</option>
+                        </select>
+                    </div>
+                    <div id="phy-dynamic-options">
+                        <div class="prop-row"><label>重さ (Mass)</label><input type="number" id="phy-mass" value="1.0"
+                                step="0.1"></div>
+                        <div class="prop-row"><label>反発 (Bounce)</label><input type="number" id="phy-bounce" value="0.5"
+                                step="0.1"></div>
+                        <div class="prop-row"><label>抵抗 (Damping)</label><input type="range" id="phy-damping" min="0"
+                                max="0.99" step="0.01" style="flex:1"><span id="val-damping"
+                                style="font-size:0.8rem;width:30px;text-align:right;">0.0</span></div>
+                        <div class="prop-row"><label>回転ロック</label><input type="checkbox" id="phy-fixed"></div>
+                    </div>
+                    <div id="phy-kinematic-options"
+                        style="display:none; border-top:1px solid #444; margin-top:8px; padding-top:8px;">
+                        <div class="prop-title" style="font-size:0.8rem; color:#4caf50;">自動移動設定</div>
+                        <div class="prop-row"><label style="width:100px; color:#ff5555;">💥 破壊可能</label><input
+                                type="checkbox" id="kin-destructible"></div>
+                        <div class="prop-row"><label>耐久値 (HP)</label><input type="number" id="kin-hp" value="0" min="0"
+                                step="1"></div>
+                        <div class="prop-row">
+                            <label>起動条件</label>
+                            <select id="kin-trigger" style="width:100%;">
+                                <option value="auto">⚡ 自動 (最初から)</option>
+                                <option value="touch_player">👤 プレイヤー接触</option>
+                                <option value="touch_enemy">👿 敵接触</option>
+                                <option value="touch_any">📦 何でも接触</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <label>動き</label>
+                            <select id="kin-mode" style="width:100%;">
+                                <option value="none">🛑 なし (固定)</option>
+                                <option value="linear">↔️ 直線移動</option>
+                                <option value="rotate">🔄 回転</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <label>ループ</label>
+                            <select id="kin-loop" style="width:100%;">
+                                <option value="loop">♾️ ずっと往復/回転</option>
+                                <option value="once">➡️ 片道でストップ</option>
+                            </select>
+                        </div>
+                        <div class="prop-row">
+                            <label>軸 (Axis)</label>
+                            <select id="kin-axis" style="width:100%;">
+                                <option value="x">X軸 (横)</option>
+                                <option value="y">Y軸 (縦)</option>
+                                <option value="z">Z軸 (奥)</option>
+                            </select>
+                        </div>
+                        <div class="prop-row"><label>移動距離(m)</label><input type="number" id="kin-range" value="3.0"
+                                step="0.5"></div>
+                        <div class="prop-row"><label>速度</label><input type="number" id="kin-speed" value="1.0"
+                                step="0.1"></div>
+                    </div>
+                    <div class="help-text" id="phy-desc"></div>
+                </div>
+
+                <!-- Transform -->
+                <div class="prop-section">
+                    <div class="prop-title">座標</div>
+                    <div class="vec3-row">
+                        <div class="vec3-input"><span>X</span><input type="number" id="px" step="0.5"></div>
+                        <div class="vec3-input"><span>Y</span><input type="number" id="py" step="0.5"></div>
+                        <div class="vec3-input"><span>Z</span><input type="number" id="pz" step="0.5"></div>
+                    </div>
+                    <div class="prop-title">回転</div>
+                    <div class="vec3-row">
+                        <div class="vec3-input"><span>X</span><input type="number" id="rx" step="15"></div>
+                        <div class="vec3-input"><span>Y</span><input type="number" id="ry" step="15"></div>
+                        <div class="vec3-input"><span>Z</span><input type="number" id="rz" step="15"></div>
+                    </div>
+                    <div class="prop-title">サイズ</div>
+                    <div class="vec3-row">
+                        <div class="vec3-input"><span>X</span><input type="number" id="sx" step="0.1"></div>
+                        <div class="vec3-input"><span>Y</span><input type="number" id="sy" step="0.1"></div>
+                        <div class="vec3-input"><span>Z</span><input type="number" id="sz" step="0.1"></div>
+                    </div>
+                    <div class="prop-row" style="margin-top:8px;">
+                        <label>中心点 (Pivot)</label>
+                        <select id="inp-pivot">
+                            <option value="center">Center (中心)</option>
+                            <option value="bottom">Bottom (下)</option>
+                            <option value="top">Top (上)</option>
+                            <option value="left">Left (左)</option>
+                            <option value="right">Right (右)</option>
+                            <option value="front">Front (前)</option>
+                            <option value="back">Back (奥)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Material -->
+                <div class="prop-section">
+                    <div class="prop-title">マテリアル (見た目)</div>
+                    <div class="prop-row"><label>基本色</label><input type="color" id="inp-color"
+                            style="width:100%; height:30px;"></div>
+
+                    <div class="sub-header">グラデーション (Gradient)</div>
+                    <div class="prop-row">
+                        <label style="width:100px;">使用する</label>
+                        <input type="checkbox" id="chk-grad-enable">
+                    </div>
+
+                    <div class="prop-row">
+                        <label>タイプ</label>
+                        <select id="sel-grad-type" style="width:100%;">
+                            <option value="linear">📏 線形 (Linear)</option>
+                            <option value="radial">◎ 円形 (Radial)</option>
+                        </select>
+                    </div>
+                    <div class="prop-row">
+                        <label>貼り方</label>
+                        <select id="sel-grad-mapping" style="width:100%;">
+                            <option value="face">🎲 面ごと (Face UV)</option>
+                            <option value="object">🌍 全体 (Projected)</option>
+                        </select>
+                    </div>
+
+                    <div class="prop-row">
+                        <label>位置 (Offset)</label>
+                        <input type="range" id="inp-grad-offset" min="-0.5" max="0.5" step="0.01" value="0"
+                            style="flex:1;">
+                    </div>
+
+                    <div class="prop-row" id="row-grad-dir">
+                        <label>方向</label>
+                        <select id="sel-grad-dir" style="width:100%;">
+                            <option value="y">↕ 縦 (Vertical)</option>
+                            <option value="x">↔ 横 (Horizontal)</option>
+                            <option value="diag">↘ 斜め (Diagonal)</option>
+                        </select>
+                    </div>
+
+                    <div class="prop-row">
+                        <label>開始色</label>
+                        <input type="color" id="inp-grad-top" value="#4caf50" style="width:100%; height:25px;">
+                    </div>
+                    <div class="prop-row">
+                        <label>終了色</label>
+                        <input type="color" id="inp-grad-bot" value="#8b4513" style="width:100%; height:25px;">
+                    </div>
+
+                    <div class="prop-row"><label>透明度</label><input type="range" id="mat-opacity" min="0" max="1"
+                            step="0.05" style="flex:1"><span id="val-opacity"
+                            style="font-size:0.8rem;width:30px;text-align:right;">1.0</span></div>
+                    <div class="prop-row"><label>発光色</label><input type="color" id="mat-emissive" value="#000000"
+                            style="width:40px;height:25px;border:none;"><input type="range" id="mat-emissive-int"
+                            min="0" max="5" step="0.1" style="flex:1;margin-left:5px;"></div>
+                    <div class="prop-row"><label>粗さ(Rough)</label><input type="range" id="mat-roughness" min="0" max="1"
+                            step="0.05" style="flex:1"></div>
+                    <div class="prop-row"><label>金属(Metal)</label><input type="range" id="mat-metalness" min="0" max="1"
+                            step="0.05" style="flex:1"></div>
+                    <div class="prop-row" style="margin-top:10px;"><label>テクスチャ</label><input type="file"
+                            id="inp-texture" accept="image/*" style="font-size:0.8rem;"></div>
+                    <button class="btn-secondary" id="btn-clear-tex">テクスチャ削除</button>
+                    <div class="prop-row" id="row-billboard" style="margin-top:10px; display:none;">
+                        <label style="width:120px; color:#00d2ff;">カメラ追従</label>
+                        <input type="checkbox" id="chk-billboard">
+                    </div>
+                </div>
+
+                <div class="prop-section">
+                    <button class="btn-action btn-copy" id="btn-copy">複製 (Copy)</button>
+                    <button class="btn-action btn-delete" id="btn-delete">削除 (Delete)</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- World Settings Panel -->
+        <aside id="world-panel">
+            <div class="panel-header"><span>ワールド設定</span><button class="panel-close" id="close-world">×</button></div>
+            <div class="scrollable-content">
+                <!-- Environment -->
+                <div class="prop-section">
+                    <div class="prop-title">環境 (Environment)</div>
+                    <div class="prop-row"><label>空の色</label><input type="color" id="world-bg-color" value="#1e1e1e"
+                            style="width:100%; height:30px;"></div>
+                    <div class="prop-row"><label>霧の濃さ</label><input type="range" id="world-fog-dens" min="0" max="0.1"
+                            step="0.001" style="flex:1"></div>
+                    <div class="sub-header" style="color:#ffeb3b;">サウンド</div>
+                    <div class="prop-row">
+                        <label>ステージBGM</label>
+                        <select id="world-bgm" style="width:100%;">
+                            <option value="">(なし)</option>
+                        </select>
+                    </div>
+
+                    <div class="sub-header">ライティング</div>
+                    <div class="prop-row"><label>全体光</label><input type="color" id="world-amb-color" value="#404040"
+                            style="width:30px; border:none;"><input type="range" id="world-amb-int" min="0" max="2"
+                            step="0.1" style="flex:1;"></div>
+                    <div class="prop-row"><label>太陽光</label><input type="color" id="world-sun-color" value="#ffffff"
+                            style="width:30px; border:none;"><input type="range" id="world-sun-int" min="0" max="3"
+                            step="0.1" style="flex:1;"></div>
+                    <div class="prop-group-label">太陽の向き (X / Y)</div>
+                    <div class="prop-row">
+                        <input type="range" id="world-sun-x" min="-50" max="50" style="flex:1">
+                        <input type="range" id="world-sun-y" min="0" max="50" style="flex:1">
+                    </div>
+                </div>
+                <!-- Camera -->
+                <div class="prop-section" style="border-left: 3px solid #9c27b0; padding-left: 8px;">
+                    <div class="prop-title" style="color:#9c27b0;">カメラ (Camera)</div>
+                    <div class="prop-row">
+                        <label>視点</label>
+                        <select id="world-cam-mode" style="width:100%;">
+                            <option value="tps">🚶 三人称 (TPS)</option>
+                            <option value="fps">🔫 一人称 (FPS)</option>
+                            <option value="top_down">🚁 俯瞰 (見下ろし)</option>
+                            <option value="side_scroll">🍄 横スクロール (2.5D)</option>
+                        </select>
+                    </div>
+                    <div class="prop-row"><label>距離</label><input type="number" id="world-cam-dist" value="10"
+                            step="1"><span style="font-size:0.8rem;">m</span></div>
+                    <div class="prop-row"><label>画角FOV</label><input type="number" id="world-cam-fov" value="60"
+                            step="5"><span style="font-size:0.8rem;">度</span></div>
+                </div>
+                <!-- Game Rules -->
+                <div class="prop-section" style="border-left: 3px solid #ff9800; padding-left: 8px;">
+                    <div class="prop-title" style="color:#ff9800;">ゲームルール (Rules)</div>
+                    <div class="prop-row"><label>制限時間</label><input type="number" id="world-time-limit" value="0"
+                            min="0"><span style="font-size:0.8rem;">秒 (0=無制限)</span></div>
+                    <div class="prop-row"><label>残機数</label><input type="number" id="world-lives" value="3"
+                            min="-1"><span style="font-size:0.8rem;">(-1=無限)</span></div>
+                    <div class="sub-header">ダメージ・重力</div>
+                    <div class="prop-row"><label>落下ダメ</label><input type="checkbox" id="world-fall-dmg" checked></div>
+                    <div class="prop-row"><label>致死高さ</label><input type="number" id="world-fall-h" value="10"><span
+                            style="font-size:0.8rem;">m</span></div>
+                    <div class="prop-row"><label>重力</label><input type="number" id="world-gravity" value="-20" step="1">
+                    </div>
+                    <div class="prop-row"><label style="width:120px; color:#00d2ff;">🔄 重力操作許可</label><input
+                            type="checkbox" id="world-allow-gravity" checked></div>
+                </div>
+                <!-- Player Stats -->
+                <div class="prop-section" style="border-left: 3px solid #2196f3; padding-left: 8px;">
+                    <div class="prop-title" style="color:#2196f3;">プレイヤー (Player)</div>
+
+                    <div class="sub-header">基本ステータス</div>
+                    <div class="prop-row"><label>最大HP</label><input type="number" id="world-plr-hp" value="100"
+                            step="10"></div>
+                    <div class="prop-row"><label>HP自動回復</label><input type="number" id="world-plr-hp-regen" value="0"
+                            step="1" title="1秒間あたりの回復量"></div>
+                    <div class="prop-row"><label>最大SP</label><input type="number" id="world-plr-sp" value="100"
+                            step="10"></div>
+                    <div class="prop-row"><label>SP自動回復</label><input type="number" id="world-plr-sp-regen" value="20"
+                            step="1" title="1秒間あたりの回復量"></div>
+                    <div class="prop-row"><label>SP回復遅延</label><input type="number" id="world-plr-sp-delay" value="1.0"
+                            step="0.1" title="消費後、回復開始までの秒数"></div>
+
+                    <div class="sub-header">運動性能</div>
+                    <div class="prop-row"><label>速度倍率</label><input type="number" id="world-plr-speed" value="1.0"
+                            step="0.1"></div>
+                    <div class="prop-row"><label>ダッシュ倍率</label><input type="number" id="world-plr-dash" value="2.0"
+                            step="0.1"></div>
+                    <div class="prop-row"><label>ジャンプ倍率</label><input type="number" id="world-plr-jump" value="1.0"
+                            step="0.1"></div>
+                    <div class="prop-row"><label>多段ジャンプ</label><select id="world-plr-double" style="flex:1">
+                            <option value="0">禁止 (1回)</option>
+                            <option value="1">2段ジャンプ</option>
+                            <option value="2">3段ジャンプ</option>
+                            <option value="-1">無限飛行</option>
+                        </select></div>
+
+                    <div class="sub-header">スタミナ(SP)消費量</div>
+                    <div class="prop-row"><label>ダッシュ消費</label><input type="number" id="world-plr-sp-dash" value="10"
+                            step="1" title="1秒間あたりの消費量"></div>
+                    <div class="prop-row"><label>ジャンプ消費</label><input type="number" id="world-plr-sp-jump" value="15"
+                            step="1" title="1回あたりの消費量"></div>
+                    <div class="prop-row"><label>攻撃消費</label><input type="number" id="world-plr-sp-atk" value="20"
+                            step="1" title="1回あたりの消費量"></div>
+                    <div class="sub-header">戦闘設定 (Combat)</div>
+                    <div class="prop-row"><label>ﾛｯクｵﾝ距離</label><input type="number" id="world-plr-lockon" value="20"
+                            step="1" title="ロックオンできる最大距離(m)"></div>
+                    <div class="prop-row"><label>基本攻撃力</label><input type="number" id="world-plr-base-atk" value="10"
+                            step="1" title="素手の時のダメージ"></div>
+
+                    <div class="sub-header">アセンブル設定 (装備部位)</div>
+                    <div class="prop-row">
+                        <label>部位定義</label>
+                        <input type="text" id="world-plr-slots" value="head,body,arm,leg,weapon"
+                            title="カンマ区切りで入力 (例: head,body,arm,weapon)">
+                    </div>
+                    <div class="help-text">※ここで決めた名前がアイテムの「装備先」になります</div>
+                </div>
+                <!-- Boundary -->
+                <div class="prop-section">
+                    <div class="prop-title">行動限界 (Boundary)</div>
+                    <div class="prop-row"><label style="width:120px; color:#ffeb3b;">当たり判定表示</label><input
+                            type="checkbox" id="world-debug-physics"></div>
+                    <div class="prop-row"><label>編集用ガイド</label><input type="checkbox" id="world-bounds-show" checked>
+                    </div>
+                    <div class="prop-row"><label style="color:#00d2ff;">壁の可視化</label><input type="checkbox"
+                            id="world-bounds-visible"></div>
+                    <div class="prop-row"><label>壁の色</label><input type="color" id="world-bounds-color" value="#00d2ff"
+                            style="width:100%; height:30px;"></div>
+                    <div class="vec3-row">
+                        <div class="vec3-input"><span>幅 X</span><input type="number" id="world-size-x" value="50"></div>
+                        <div class="vec3-input"><span>高 Y</span><input type="number" id="world-size-y" value="50"></div>
+                        <div class="vec3-input"><span>奥 Z</span><input type="number" id="world-size-z" value="50"></div>
+                    </div>
+                    <div class="prop-row"><label>境界作用</label><select id="world-bounds-mode" style="width:100%;">
+                            <option value="block">🚧 進入禁止 (壁)</option>
+                            <option value="kill">☠️ 死亡 (ゲームオーバー)</option>
+                            <option value="none">🕊️ 制限なし</option>
+                        </select></div>
+                </div>
+            </div>
+
+            <div class="prop-section" style="border-bottom: none; margin-top: 20px;">
+                <button class="btn-action" id="btn-save-stage-only" style="margin-top:10px; background:#443355;">💾
+                    ステージのみ保存 (.json)</button>
+                <button class="btn-action" id="btn-load-stage-only" style="margin-top:5px; background:#334455;">📂
+                    ステージのみ読込</button>
+                <input type="file" id="file-stage-only" accept=".json" class="hidden-file" style="display:none;">
+            </div>
+
+        </aside>
+    </div>
+
+    <!-- Bottom Panel -->
+    <div id="timeline-panel">
+        <div class="timeline-header">
+            <div class="panel-mode-selector"
+                style="margin-right: 15px; border-right: 1px solid #555; padding-right: 15px;">
+                <select id="bottom-panel-mode" class="timeline-select"
+                    style="background:#444; color:#fff; border-color:#888;">
+                    <option value="animation">🎬 アニメーション</option>
+                    <option value="logic">🧠 AI・ロジック</option>
+                    <option value="attack">⚔️ 攻撃設定</option>
+                </select>
+            </div>
+            <div id="tl-anim-controls" class="timeline-controls" style="display:flex;">
+                <select id="tl-anim-select" class="timeline-select">
+                    <option value="idle">Idle</option>
+                </select>
+                <div class="divider"></div>
+                <button id="tl-btn-first">⏮</button><button id="tl-btn-prev">◀</button><button id="tl-btn-play"
+                    class="play-pause-btn">▶</button><button id="tl-btn-next">▶</button><button
+                    id="tl-btn-last">⏭</button>
+                <div class="divider"></div>
+                <span class="time-display">Frame: <input type="number" id="tl-current-frame" value="0" min="0"></span>
+                <div class="divider"></div>
+                <button id="tl-btn-record" class="record-btn">● REC</button><button id="tl-btn-delete-key"
+                    class="delete-key-btn">× Del</button>
+            </div>
+            <div id="tl-logic-controls" class="timeline-controls" style="display:none;"><span
+                    style="color:#aaa; font-size:0.8rem;">AI Behavior Settings</span></div>
+            <div id="tl-attack-controls" class="timeline-controls" style="display:none;"><span
+                    style="color:#aaa; font-size:0.8rem;">Attack Properties</span></div>
+            <div class="timeline-settings" id="tl-common-settings"><span>Total:</span><input type="number"
+                    id="tl-total-frames" value="60" style="width:50px;"><span style="margin-left:10px;">FPS: 30</span>
+            </div>
+        </div>
+        <div class="timeline-tracks-container">
+            <div id="timeline-tracks-scroll">
+                <div id="timeline-ruler"></div>
+                <div id="timeline-track-list"></div>
+                <div id="timeline-playhead"></div>
+            </div>
+            <div id="logic-editor-area"
+                style="display:none; width:100%; height:100%; overflow:auto; padding:10px; box-sizing:border-box;">
+            </div>
+            <div id="attack-editor-area"
+                style="display:none; width:100%; height:100%; overflow:auto; padding:10px; box-sizing:border-box;">
+            </div>
+            <div id="ui-editor-bottom-view"
+                style="display:none; width:100%; height:100%; display:flex; flex-direction:row; background:#222;">
+                <div id="ui-bottom-palette"
+                    style="width:140px; border-right:1px solid #444; padding:10px; overflow-y:auto;"></div>
+                <div id="ui-bottom-list"
+                    style="width:250px; border-right:1px solid #444; padding:10px; overflow-y:auto; background:#1e1e1e;">
+                    <div id="ui-bottom-list-content"></div>
+                </div>
+                <div id="ui-bottom-inspector" style="flex:1; padding:10px; overflow-y:auto;">
+                    <div id="ui-bottom-inspector-content" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer / Toolbar -->
+    <footer id="toolbar">
+        <button id="btn-minimize-toolbar" title="ツールバーを折りたたむ">▼</button>
+        <div class="tool-group"><button class="tool-btn" id="btn-toggle-timeline" title="Toggle Timeline/Logic"><span
+                    class="tool-icon">🎬</span><span class="tool-label">Logic</span></button></div>
+        <div class="tool-divider"></div>
+        <div class="tool-group"><button class="tool-btn active" id="mode-translate"><span
+                    class="tool-icon">✛</span><span class="tool-label">Move</span></button><button class="tool-btn"
+                id="mode-rotate"><span class="tool-icon">↻</span><span class="tool-label">Rotate</span></button><button
+                class="tool-btn" id="mode-scale"><span class="tool-icon">⤡</span><span
+                    class="tool-label">Scale</span></button></div>
+        <div class="tool-divider"></div>
+        <div class="tool-group" id="toolbar-transform-inputs"
+            style="display:flex; flex-direction:column; justify-content:center; gap:2px;">
+            <div style="display:flex; align-items:center; gap:4px;"><span id="tf-label-x"
+                    class="tf-axis-label x-axis">X</span><input type="number" id="tf-input-x" class="tf-input"
+                    step="0.5"></div>
+            <div style="display:flex; align-items:center; gap:4px;"><span id="tf-label-y"
+                    class="tf-axis-label y-axis">Y</span><input type="number" id="tf-input-y" class="tf-input"
+                    step="0.5"></div>
+            <div style="display:flex; align-items:center; gap:4px;"><span id="tf-label-z"
+                    class="tf-axis-label z-axis">Z</span><input type="number" id="tf-input-z" class="tf-input"
+                    step="0.5"></div>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+            <button class="tool-btn toggle-btn" id="btn-snap"><span class="tool-icon">🧲</span><span
+                    class="tool-label">スナップ</span></button>
+            <button class="tool-btn toggle-btn" id="btn-multi"><span class="tool-icon">❏</span><span
+                    class="tool-label">複数選択</span></button>
+            <button class="tool-btn" id="btn-set-cursor"><span class="tool-icon">⌖</span><span
+                    class="tool-label">基点設定</span></button>
+            <button class="tool-btn" id="btn-reset-cursor"><span class="tool-icon">◎</span><span
+                    class="tool-label">基点リセット</span></button>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+            <button class="tool-btn" id="tool-btn-copy" title="複製"><span class="tool-icon">❐</span><span
+                    class="tool-label">複製</span></button>
+            <button class="tool-btn" id="tool-btn-mirror" title="反転コピー"><span class="tool-icon">◧</span><span
+                    class="tool-label">反転</span></button>
+            <button class="tool-btn toggle-btn" id="tool-btn-sync" title="左右同期"><span class="tool-icon">🔗</span><span
+                    class="tool-label">同期</span></button>
+            <button class="tool-btn" id="tool-btn-delete" title="削除"><span class="tool-icon">🗑️</span><span
+                    class="tool-label">削除</span></button>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-group">
+            <div class="tool-btn-wrapper" title="オブジェクトの色を変更">
+                <input type="color" id="tool-color-picker" value="#ffffff">
+            </div>
+            <div class="tool-btn-wrapper" style="width: auto; padding: 0 4px; gap:2px;" title="中心点(ピボット)を変更">
+                <span style="font-size: 1rem; color:#aaa;">⌖</span>
+                <select id="tool-pivot-picker"
+                    style="background:transparent; border:none; color:#fff; font-size:0.75rem; width: 75px; cursor:pointer; outline:none;">
+                    <option value="" disabled selected>ピボット</option>
+                    <option value="center">中心</option>
+                    <option value="bottom">下</option>
+                    <option value="top">上</option>
+                    <option value="back">奥</option>
+                    <option value="front">手前</option>
+                    <option value="left">左</option>
+                    <option value="right">右</option>
+                </select>
+            </div>
+            <button class="tool-btn" id="btn-align-linear" title="選択した物を直線上に並べる"><span class="tool-icon">┃-┃</span><span
+                    class="tool-label">直線整列</span></button>
+            <button class="tool-btn" id="btn-align-dist" title="選択した物を等間隔に配置する"><span class="tool-icon">|||</span><span
+                    class="tool-label">等間隔</span></button>
+        </div>
+        <div class="tool-divider"></div>
+        <div class="tool-scroll-area">
+
+            <!-- 基本図形 -->
+            <button class="add-btn" data-type="cube" title="箱"><span class="shape-icon">■</span> Box</button>
+            <button class="add-btn" data-type="plane" title="床・壁"><span class="shape-icon">＿</span> Floor</button>
+            <button class="add-btn" data-type="slope" title="斜面"><span class="shape-icon">⊿</span> Slope</button>
+            <button class="add-btn" data-type="stairs" title="階段"><span class="shape-icon">☷</span> Stair</button>
+            <button class="add-btn" data-type="sphere" title="球体"><span class="shape-icon">●</span> Sphere</button>
+            <button class="add-btn" data-type="cylinder" title="円柱"><span class="shape-icon">▮</span> Cylin</button>
+            <button class="add-btn" data-type="cone" title="円錐"><span class="shape-icon">▲</span> Cone</button>
+
+            <!-- 応用図形 -->
+            <button class="add-btn" data-type="torus" title="ドーナツ型"><span class="shape-icon">◎</span> Torus</button>
+            <button class="add-btn" data-type="capsule" title="カプセル"><span class="shape-icon">⬭</span> Capsule</button>
+            <button class="add-btn" data-type="dome" title="半球"><span class="shape-icon">◒</span> Dome</button>
+            <button class="add-btn" data-type="smooth_slope" title="滑らかな斜面"><span class="shape-icon">◜</span>
+                S.Slope</button>
+            <button class="add-btn" data-type="pipe" title="曲がったパイプ"><span class="shape-icon">⑃</span> Pipe</button>
+            <button class="add-btn" data-type="arch" title="アーチ"><span class="shape-icon">∩</span> Arch</button>
+
+            <!-- 新規追加図形 -->
+            <button class="add-btn" data-type="ring" title="リング"><span class="shape-icon">〇</span> Ring</button>
+            <button class="add-btn" data-type="tetrahedron" title="四面体"><span class="shape-icon">⨡</span> Tetra</button>
+            <button class="add-btn" data-type="octahedron" title="八面体"><span class="shape-icon">✧</span> Octa</button>
+            <button class="add-btn" data-type="dodecahedron" title="十二面体"><span class="shape-icon">⬡</span>
+                Dodeca</button>
+            <button class="add-btn" data-type="icosahedron" title="二十面体"><span class="shape-icon">⬢</span>
+                Icosa</button>
+            <button class="add-btn" data-type="torus_knot" title="結び目"><span class="shape-icon">⌘</span> Knot</button>
+
+            <!-- ★今回追加する新・拡張図形 -->
+            <div class="tool-divider"></div>
+            <button class="add-btn" data-type="tube" title="土管"><span class="shape-icon">◎</span> Tube</button>
+            <button class="add-btn" data-type="hollow_box" title="中空箱"><span class="shape-icon">▣</span> Hollow</button>
+            <button class="add-btn" data-type="pyramid" title="四角錐"><span class="shape-icon">△</span> Pyramid</button>
+            <button class="add-btn" data-type="trapezoid" title="四角錐台"><span class="shape-icon">⏢</span> Trapez</button>
+            <button class="add-btn" data-type="corner_slope" title="角の坂"><span class="shape-icon">⊿</span>
+                Corner</button>
+            <button class="add-btn" data-type="hex_prism" title="六角柱"><span class="shape-icon">⬡</span> Hexagon</button>
+            <button class="add-btn" data-type="gear" title="歯車"><span class="shape-icon">⚙</span> Gear</button>
+            <button class="add-btn" data-type="star" title="星"><span class="shape-icon">★</span> Star</button>
+            <button class="add-btn" data-type="heart" title="ハート"><span class="shape-icon">♥</span> Heart</button>
+            <button class="add-btn" data-type="terrain" title="山・地形"><span class="shape-icon">⛰</span> Terrain</button>
+            <button class="add-btn" data-type="sector" title="扇形"><span class="shape-icon">🍕</span> Sector</button>
+            <button class="add-btn" data-type="rock" title="岩・小石"><span class="shape-icon">🪨</span> Rock</button>
+            <button class="add-btn" data-type="spiral_stairs" title="らせん階段"><span class="shape-icon">🌀</span>
+                Spiral</button>
+            <button class="add-btn" data-type="quarter_pipe" title="湾曲スロープ"><span class="shape-icon">╰</span>
+                Q.Pipe</button>
+            <button class="add-btn" data-type="floating_island" title="浮島・つらら"><span class="shape-icon">▼</span>
+                Island</button>
+            <!-- ランダムオブジェクト セクション -->
+            <div class="tool-divider" style="border-left-color: #ff9800; border-left-width: 3px;"></div>
+            <div style="color: #ff9800; font-size: 0.7rem; padding: 0 5px; writing-mode: vertical-lr;">RANDOM</div>
+
+            <button class="add-btn" data-type="rand_rock" title="ランダムな岩" style="border-color: #ff9800;"><span
+                    class="shape-icon">🎲</span> Nat.Rock</button>
+            <button class="add-btn" data-type="rand_crystal" title="ランダムな結晶" style="border-color: #ff9800;"><span
+                    class="shape-icon">💎</span> Crystal</button>
+            <button class="add-btn" data-type="rand_tree" title="ランダムな木" style="border-color: #ff9800;"><span
+                    class="shape-icon">🌳</span> Tree</button>
+            <button class="add-btn" data-type="rand_cloud" title="ランダムな雲・茂み" style="border-color: #ff9800;"><span
+                    class="shape-icon">☁</span> Cloud</button>
+            <button class="add-btn" data-type="rand_grass" title="ランダムな草むら" style="border-color: #ff9800;"><span
+                    class="shape-icon">🌿</span> Grass</button>
+        </div>
+    </footer>
+
+    <!-- Game UI -->
+    <div id="game-ui">
+        <!-- ★修正点1: simpleGame.js がUI要素を配置するラッパーを追加 -->
+        <div id="ui-game-screen"></div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="hidden">
+        <div class="result-content">
+            <h1 id="result-title">GAME CLEAR!!</h1><button id="btn-restart" class="btn-action">Try Again</button>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="hidden"
+        style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; display:flex; justify-content:center; align-items:center;">
+        <div
+            style="background:#252526; padding:0; border-radius:10px; border:1px solid #555; width:90%; max-width:800px; color:#eee; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+
+            <!-- ヘッダー部分 -->
+            <h2
+                style="margin:0; background:#1e1e1e; padding:15px 20px; border-bottom:1px solid #555; display:flex; justify-content:space-between; align-items:center;">
+                <span>📖 公式マニュアル & ヘルプ</span>
+                <button id="close-help"
+                    style="background:none; border:none; color:#aaa; font-size:1.5rem; cursor:pointer; padding:0 10px;">×</button>
+            </h2>
+
+            <!-- スクロールするコンテンツ部分 -->
+            <div style="padding:20px; overflow-y:auto; flex:1;">
+
+                <div id="help-modal-content" style="color: #ccc; line-height: 1.6;">
+    <h2 style="color: #00d2ff; border-bottom: 1px solid #444; padding-bottom: 10px;">ショートカット一覧</h2>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+        <!-- セクション1: 基本操作 -->
+        <div>
+            <h3 style="color: #ffeb3b; font-size: 1rem; margin-bottom: 8px;">🏞️ 基本・ステージ編集</h3>
+            <ul style="list-style: none; padding: 0; font-size: 0.9rem;">
+                <li><kbd>G</kbd> : 移動 (Translate)</li>
+                <li><kbd>R</kbd> : 回転 (Rotate)</li>
+                <li><kbd>S</kbd> : 拡大 (Scale)</li>
+                <li><kbd>Ctrl</kbd> + <kbd>D</kbd> : オブジェクト複製</li>
+                <li><kbd>Del</kbd> / <kbd>BS</kbd> : 削除</li>
+                <li><kbd>Esc</kbd> : 選択解除 / プレイ停止</li>
+                <li><kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd> : Undo / Redo</li>
+            </ul>
+        </div>
+
+        <!-- セクション2: アニメーション操作 (★ここが追記分) -->
+        <div>
+            <h3 style="color: #9c27b0; font-size: 1rem; margin-bottom: 8px;">🤖 アニメーション</h3>
+            <ul style="list-style: none; padding: 0; font-size: 0.9rem;">
+                <li><kbd>Space</kbd> : 再生 / 停止</li>
+                <li><kbd>←</kbd> / <kbd>→</kbd> : 1フレーム戻る / 進む</li>
+                <li><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd> : 最初 / 最後へ飛ぶ</li>
+                <li><kbd>I</kbd> : キーフレーム挿入 (Insert)</li>
+                <li><kbd>Ctrl</kbd> + <kbd>Wheel</kbd> : タイムラインのズーム</li>
+            </ul>
+        </div>
+    </div>
+
+    <p style="margin-top: 20px; font-size: 0.8rem; color: #888; text-align: center;">
+        ※入力欄（名前や数値など）に文字を打っている間はショートカットは無効になります。
+    </p>
+</div>
+
+                <!-- 2. ステージデザイン -->
+                <div style="margin-bottom:30px;">
+                    <h3 style="color:#4caf50; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:15px;">🏞️
+                        Stage Design (ステージ作り)</h3>
+                    <p style="color:#ccc; font-size:0.9rem; line-height:1.6;">
+                        画面下のパレットから図形を追加し、世界を作りましょう。<br>
+                        右側の「プロパティ」で、色や物理挙動、さらに<b>「ゲームロジック（役割）」</b>を設定できます。
+                    </p>
+                    <ul
+                        style="color:#ccc; font-size:0.85rem; line-height:1.6; background:#1e1e1e; padding:10px 10px 10px 30px; border-radius:5px;">
+                        <li><b>物理挙動:</b> 床や壁は「Static(不動)」、動くリフトは「Kinematic(制御)」にします。</li>
+                        <li><b>スタートとゴール:</b> 最低1つずつ配置しないとゲームが始まりません。</li>
+                        <li><b>ワープとポータル:</b> 入口と出口のIDを合わせることで一瞬で移動できます。</li>
+                        <li><b>イベント発火:</b> 透明にして配置すると、踏んだ時に「チュートリアルUI」を開くなどの罠が作れます。</li>
+                        <li><b>ランダムスポナー:</b> 指定した範囲に、敵をまとめてランダム配置できます。</li>
+                    </ul>
+                </div>
+
+                <!-- 3. キャラクターデザイン -->
+                <div style="margin-bottom:30px;">
+                    <h3 style="color:#ff5555; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:15px;">🤖
+                        Character Design (キャラ・AI作り)</h3>
+                    <p style="color:#ccc; font-size:0.9rem; line-height:1.6;">
+                        敵キャラやNPCをモデリングし、動きと性格を与えます。
+                    </p>
+                    <ul
+                        style="color:#ccc; font-size:0.85rem; line-height:1.6; background:#1e1e1e; padding:10px 10px 10px 30px; border-radius:5px;">
+                        <li><b>モデリング:</b> パーツの親を「Root」や「Body」に設定して親子関係を作りましょう。<br>
+                            下の「◧ 反転」「🔗 同期」ボタンを使えば、左右対称の腕などを一瞬で作れます。</li>
+                        <li><b>アニメーション:</b> 画面下の「🎬 Animation」タブで、コマごとにREC(録画)して動きを作ります。</li>
+                        <li><b>AIロジック:</b> 「🧠 Logic / AI」タブで、「もし HPが低い なら 逃げる」などの性格を作ります。</li>
+                    </ul>
+                </div>
+
+                <!-- 4. UIデザイン -->
+                <div style="margin-bottom:30px;">
+                    <h3 style="color:#00d2ff; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:15px;">🎨
+                        UI Design (画面作り)</h3>
+                    <p style="color:#ccc; font-size:0.9rem; line-height:1.6;">
+                        タイトル画面やゲーム中のHUD、メニュー、ゲームオーバー画面を作ります。<br>
+                        要素を配置したら、必ず右側の<b>「シーン」</b>が合っているか確認してください。
+                    </p>
+                    <ul
+                        style="color:#ccc; font-size:0.85rem; line-height:1.6; background:#1e1e1e; padding:10px 10px 10px 30px; border-radius:5px;">
+                        <li><b>紐付け変数 (Data Bind):</b> これを設定すると、ゲーム中の「HP」や「時間」と自動で連動します。</li>
+                        <li><b>アクション:</b> ボタンを押した時の動作（ゲーム開始、ジャンプ、攻撃など）を設定します。</li>
+                        <li><b>イベント用画面:</b>
+                            「チュートリアル」用の画面を作りたい場合は、シーンを任意の名前（例：tutorial_1）に変更して作成し、ステージ上の「イベント発火」ギミックから呼び出します。</li>
+                        <li style="color:#ffeb3b;"><b>★ オプション設定画面:</b>
+                            「🎚️スライダー」を配置し、紐付け変数で「設定: BGM音量」などを選ぶと、ゲーム内で音量やFPSを調整できるメニューが作れます。「キー割り当て変更」アクションを使えばキーコンフィグも実装可能です！</li>
+                    </ul>
+                </div>
+
+                <!-- 5. 保存と書き出し -->
+                <div style="margin-bottom:10px;">
+                    <h3 style="color:#9c27b0; border-bottom:1px solid #444; padding-bottom:5px; margin-bottom:15px;">💾
+                        保存とゲームの書き出し</h3>
+                    <table class="help-table">
+                        <tr>
+                            <th width="30%">💾 保存 (.json)</th>
+                            <td><b>「編集の続き」をするためのセーブデータ</b>です。<br>次回「📂 開く」から読み込んで編集を再開できます。</td>
+                        </tr>
+                        <tr>
+                            <th>📤 書き出し (.html)</th>
+                            <td><b>「ゲームとして遊ぶ」ための完成ファイル</b>です。<br>このHTMLファイルを友達に送れば、ブラウザですぐに遊べます！<br><span
+                                    style="color:#ff5555; font-size:0.8rem;">※このファイルから編集の続きはできません。</span></td>
+                        </tr>
+                        <tr>
+                            <th>📥 素材読込</th>
+                            <td>3Dモデル(GLB/GLTF)や、画像をテクスチャとして読み込めます。</td>
+                        </tr>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js" defer></script>
+</body>
+
+</html>

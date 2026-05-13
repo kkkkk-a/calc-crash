@@ -1,0 +1,53 @@
+@charset "UTF-8";
+
+:root {
+    /* --- Colors: Backgrounds --- */
+    --bg-dark: #1e1e1e;
+    --bg-panel: #252526;
+    --bg-header: #2d2d2d;
+    --border-color: #3e3e3e;
+    
+    /* --- Colors: Text --- */
+    --text-main: #e0e0e0;
+    --text-muted: #aaaaaa;
+    
+    /* --- Colors: Accents & Status --- */
+    --accent-color: #007acc;
+    --accent-hover: #0062a3;
+    --success-color: #4caf50;
+    --danger-color: #d32f2f;
+    --warning-color: #ff9800;
+    --purple-color: #9c27b0;
+    
+    /* --- Colors: Form Elements --- */
+    --input-bg: #3c3c3c;
+    --input-border: #555555;
+    
+    /* --- Effects --- */
+    --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
+    
+    /* --- Layout Sizes --- */
+    --header-height: 50px;
+    --footer-height: 80px;
+    --timeline-height: 220px;
+
+    /* --- 動的レイアウト用変数（初期値はフッターの高さと同じ） --- */
+    --current-footer-height: var(--footer-height);
+
+    /* --- z-index 管理（重なり順をここで一括定義） --- */
+    --z-main: 1;
+    --z-timeline: 5;
+    --z-header: 10;
+    --z-panel: 20;
+    --z-panel-float: 30;
+    --z-game-ui: 50;
+    --z-hud: 60;
+    --z-notification: 100;
+    --z-modal: 9000;
+    --z-loader: 9999;
+
+    /* --- Scrollbar Colors --- */
+    --sb-track: transparent;
+    --sb-thumb: #555;
+    --sb-thumb-hover: #777;
+}

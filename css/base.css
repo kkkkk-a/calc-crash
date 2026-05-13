@@ -1,0 +1,108 @@
+@charset "UTF-8";
+
+/* =========================================
+   Base Settings (基本設定)
+   ========================================= */
+
+* { 
+    box-sizing: border-box; 
+    -webkit-tap-highlight-color: transparent; 
+}
+
+html {
+    /* 基準となるフォントサイズ。
+       16pxを基準とし、ユーザーのブラウザ設定を尊重します */
+    font-size: 100%; 
+}
+
+body {
+    margin: 0; 
+    padding: 0; 
+    width: 100vw; 
+    height: 100vh; 
+    overflow: hidden;
+    /* セゴエUIなどを優先し、可読性を確保 */
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; 
+    background-color: var(--bg-dark);
+    color: var(--text-main); 
+    display: flex; 
+    flex-direction: column; 
+    user-select: none;
+    /* 全体の文字サイズを少し小さめ(14px相当)にして情報量を確保 */
+    font-size: 0.875rem; 
+    line-height: 1.5;
+}
+/* 全画面共通スクロールバー設定（各ファイルの個別設定は削除してください） */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--sb-track); }
+::-webkit-scrollbar-thumb { background: var(--sb-thumb); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); }
+
+/* 共通クラス */
+.hidden { display: none !important; }
+/* --- Loading Screen --- */
+#loader { 
+    position: fixed; inset: 0; background: #111; z-index: var(--z-loader); 
+    display: flex; justify-content: center; align-items: center; 
+    transition: opacity 0.5s; 
+}
+#loader.hidden { opacity: 0; pointer-events: none; }
+
+.spinner { 
+    width: 2.5rem; height: 2.5rem; /* 40px */
+    border: 0.25rem solid #333; 
+    border-top: 0.25rem solid var(--accent-color); 
+    border-radius: 50%;
+    animation: spin 1s linear infinite; 
+    margin: 0 auto 0.625rem; 
+}
+.loader-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.loader-text { font-size: 0.9rem; color: var(--text-muted); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Notification Banner --- */
+#notification-area {
+    position: absolute; 
+    top: 1.25rem; /* 20px */
+    left: 50%; transform: translateX(-50%);
+    pointer-events: none; 
+    display: flex; flex-direction: column; gap: 0.3125rem; 
+    z-index: var(--z-notification);
+    width: 90%; /* スマホでは幅いっぱいに */
+    max-width: 25rem; /* PCでは広がりすぎないように */
+}
+.notification {
+    background: rgba(0,0,0,0.85); color: white; 
+    padding: 0.5rem 1.25rem;
+    border-radius: 1.25rem; 
+    font-size: 0.9rem; 
+    border: 1px solid #555;
+    text-align: center;
+    animation: fadeOut 2s forwards; animation-delay: 2.5s;
+    box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.5);
+}
+@keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
+
+/* ファイル入力を隠すためのクラス */
+.hidden-file {
+    display: none;
+}
+
+/* ヘッダーのモード別出し分け制御 */
+.stage-only, .char-only, .ui-only, .sound-only { display: none !important; } 
+
+body[data-mode="stage"] .stage-only { display: flex !important; }
+body[data-mode="character"] .char-only { display: flex !important; }
+body[data-mode="ui"] .ui-only { display: flex !important; }
+body[data-mode="sound"] .sound-only { display: flex !important; }
+
+/* ステージ管理ボタンの微調整 */
+.stage-btn {
+    color: #fff; border: none; border-radius: 4px; 
+    padding: 2px 6px; cursor: pointer; font-size: 0.8rem;
+}

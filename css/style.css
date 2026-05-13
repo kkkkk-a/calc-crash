@@ -1,0 +1,9 @@
+@charset "UTF-8";
+
+/* 実体コードは持たせず、importのみを行う */
+@import "variables.css";
+@import "base.css";
+@import "layout.css";
+@import "components.css";
+@import "editor.css";
+@import "game.css";
